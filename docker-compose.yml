@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  ai-agent-front:
+    image: registry.cn-wulanchabu.aliyuncs.com/wanyj/ai-agent-front:1.0
+    container_name: ai-agent-front
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - ai-agent-network
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  ai-agent-network:
+    driver: bridge
+    name: ai-agent-network
