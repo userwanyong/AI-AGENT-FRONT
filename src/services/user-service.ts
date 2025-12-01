@@ -1,5 +1,53 @@
-import { API_ENDPOINTS, getDefaultHeaders } from '../config';
+import { API_ENDPOINTS, getDefaultHeaders, getUploadHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
+
+// 定义API响应格式
+export interface ApiResponse<T> {
+  code: string;
+  msg: string;
+  data: T;
+}
+
 export class UserService {
+  
+  private static readonly BASE_URL = API_ENDPOINTS.USER.BASE;
+
+  /**
+   * 修改密码
+   */
+  static async updatePassword(payload: { username: string; oldPassword: string; newPassword: string }): Promise<ApiResponse<void>> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.UPDATE_PWD}`, {
+        method: 'PUT',
+        headers: getDefaultHeaders(),
+        body: stringifySafely(payload),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await parseResponseJsonSafely(response);
+    } catch (error) {
+      console.error('修改密码失败:', error);
+      throw error;
+    }
+  }
+
+  static async resetPassword(username: string): Promise<ApiResponse<void>> {
+    try {
+      const url = `${this.BASE_URL}${API_ENDPOINTS.USER.RESET_PWD}?username=${encodeURIComponent(username)}`;
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: getDefaultHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await parseResponseJsonSafely(response);
+    } catch (error) {
+      console.error('重置密码失败:', error);
+      throw error;
+    }
+  }
+
   /**
    * 获取用户历史对话列表
    * @returns {Promise<string[]>} 历史对话列表
@@ -15,7 +63,7 @@ export class UserService {
         throw new Error('获取历史对话失败');
       }
 
-      const data = await response.json();
+      const data = await parseResponseJsonSafely(response);
       return data.data || [];
     } catch (error) {
       return [];
@@ -78,4 +126,80 @@ export class UserService {
       return [];
     }
   }
+
+  /**
+   * 获取用户信息
+   */
+  static async getUserInfo(userId: string | number): Promise<ApiResponse<UserInfoResponseDTO>> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.INFO}/${encodeURIComponent(String(userId))}`, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await parseResponseJsonSafely(response);
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新用户信息
+   */
+  static async updateUserInfo(payload: UserInfoRequestDTO): Promise<ApiResponse<void>> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.INFO}`, {
+        method: 'PUT',
+        headers: getDefaultHeaders(),
+        body: stringifySafely(payload),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await parseResponseJsonSafely(response);
+    } catch (error) {
+      console.error('更新用户信息失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 上传头像，返回 URL
+   */
+  static async uploadAvatar(file: File): Promise<ApiResponse<string>> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`${API_ENDPOINTS.FILE.BASE}${API_ENDPOINTS.FILE.UPLOAD}`, {
+        method: 'POST',
+        headers: getUploadHeaders(),
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await parseResponseJsonSafely(response);
+    } catch (error) {
+      console.error('上传头像失败:', error);
+      throw error;
+    }
+  }
 }
+
+// DTO 类型声明
+export interface UserInfoResponseDTO {
+  id?: string | number;
+  userId?: string | number;
+  nickname?: string;
+  sex?: number; // 0-男 1-女
+  phone?: string;
+  email?: string;
+  avatar?: string;
+  language?: number; // 0-中文 1-英文
+  bio?: string;
+}
+
+export interface UserInfoRequestDTO extends UserInfoResponseDTO {}

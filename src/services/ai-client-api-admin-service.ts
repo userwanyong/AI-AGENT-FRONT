@@ -1,4 +1,4 @@
-import { API_CONFIG, getDefaultHeaders } from '../config/api';
+import { API_CONFIG, getDefaultHeaders, parseResponseJsonSafely, stringifySafely } from '../config/api';
 
 // 请求和响应接口定义
 export interface AiClientApiQueryRequestDTO {
@@ -60,14 +60,14 @@ export class AiClientApiAdminService {
         ...getDefaultHeaders(),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -80,14 +80,14 @@ export class AiClientApiAdminService {
         ...getDefaultHeaders(),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -103,7 +103,7 @@ export class AiClientApiAdminService {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -118,14 +118,14 @@ export class AiClientApiAdminService {
         ...getDefaultHeaders(),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -144,7 +144,7 @@ export class AiClientApiAdminService {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
 

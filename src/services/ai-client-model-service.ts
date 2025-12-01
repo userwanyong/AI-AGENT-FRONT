@@ -2,7 +2,7 @@
  * AI客户端模型API服务
  */
 
-import { API_ENDPOINTS, getDefaultHeaders } from '../config';
+import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely } from '../config';
 
 // 定义响应数据类型
 export interface AiClientModelResponseDTO {
@@ -46,7 +46,7 @@ export class AiClientModelService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiClientModelResponseDTO[]> = await response.json();
+      const result: ApiResponse<AiClientModelResponseDTO[]> = await parseResponseJsonSafely(response);
 
       if (result.code === '0000') {
         return result.data || [];

@@ -2,7 +2,7 @@
  * AI客户端模型管理API服务
  */
 
-import { API_ENDPOINTS, getDefaultHeaders } from '../config';
+import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
 
 // 定义请求数据类型
 export interface AiClientModelRequestDTO {
@@ -66,14 +66,14 @@ export class AiModelAdminService {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_CLIENT_MODEL.CREATE}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(request),
+        body: stringifySafely(request),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      return await parseResponseJsonSafely(response);
     } catch (error) {
       console.error('创建AI客户端模型配置失败:', error);
       throw error;
@@ -90,14 +90,14 @@ export class AiModelAdminService {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_CLIENT_MODEL.UPDATE}`, {
         method: 'PUT',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(request),
+        body: stringifySafely(request),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      return await parseResponseJsonSafely(response);
     } catch (error) {
       console.error('根据ID更新AI客户端模型配置失败:', error);
       throw error;
@@ -121,7 +121,7 @@ export class AiModelAdminService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      return await parseResponseJsonSafely(response);
     } catch (error) {
       console.error('根据ID删除AI客户端模型配置失败:', error);
       throw error;
@@ -138,14 +138,14 @@ export class AiModelAdminService {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_CLIENT_MODEL.QUERY_ALL}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(request),
+        body: stringifySafely(request),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      return await parseResponseJsonSafely(response);
     } catch (error) {
       console.error('根据条件查询AI客户端模型配置列表失败:', error);
       throw error;

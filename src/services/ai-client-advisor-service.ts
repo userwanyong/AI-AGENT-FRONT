@@ -2,7 +2,7 @@
  * AI客户端顾问API服务
  */
 
-import { API_ENDPOINTS, getDefaultHeaders } from '../config';
+import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely } from '../config';
 
 // 定义响应数据类型
 export interface AiClientAdvisorResponseDTO {
@@ -44,7 +44,7 @@ export class AiClientAdvisorService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiClientAdvisorResponseDTO[]> = await response.json();
+      const result: ApiResponse<AiClientAdvisorResponseDTO[]> = await parseResponseJsonSafely(response);
 
       if (result.code === '0000') {
         return result.data || [];

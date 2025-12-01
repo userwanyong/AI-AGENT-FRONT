@@ -2,7 +2,7 @@
  * 管理员用户API服务
  */
 
-import {API_ENDPOINTS, getDefaultHeaders} from '../config';
+import {API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely} from '../config';
 
 // 定义登录请求数据类型
 export interface AdminUserLoginRequestDTO {
@@ -61,14 +61,14 @@ export class AdminUserService {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.ADMIN_USER.VALIDATE_LOGIN}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(loginData),
+        body: stringifySafely(loginData),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<boolean> = await response.json();
+      const result: ApiResponse<boolean> = await parseResponseJsonSafely(response);
 
       if (result.code === '0000') {
         return result.data || false;
@@ -94,7 +94,7 @@ export class AdminUserService {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return response.json();
+        return parseResponseJsonSafely(response);
       } catch (error) {
         console.error('查询启用的智能体失败:', error);
         throw error;
@@ -109,12 +109,12 @@ export class AdminUserService {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.ADMIN_USER.UPDATE_AGENT}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(payload),
+        body: stringifySafely(payload),
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      return await parseResponseJsonSafely(response);
     } catch (error) {
       console.error('更新智能体失败:', error);
       throw error;

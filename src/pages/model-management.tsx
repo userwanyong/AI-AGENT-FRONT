@@ -190,7 +190,7 @@ export const ModelManagement: React.FC = () => {
       title: '模型备注',
       dataIndex: 'type',
       key: 'type',
-      width: 130,
+      width: 200,
     },
     {
       title: 'API ID',

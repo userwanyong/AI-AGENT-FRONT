@@ -2,7 +2,7 @@
  * 数据统计API服务
  */
 
-import { API_CONFIG, getDefaultHeaders } from '../config/api';
+import { API_CONFIG, getDefaultHeaders, parseResponseJsonSafely } from '../config/api';
 
 // 定义数据统计响应数据类型
 export interface DataStatisticsResponseDTO {
@@ -45,7 +45,7 @@ export class DataStatisticsService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<DataStatisticsResponseDTO> = await response.json();
+      const result: ApiResponse<DataStatisticsResponseDTO> = await parseResponseJsonSafely(response);
 
       if (result.code === '0000') {
         return result.data;

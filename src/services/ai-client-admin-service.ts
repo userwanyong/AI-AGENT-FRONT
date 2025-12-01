@@ -1,4 +1,4 @@
-import { API_CONFIG, getDefaultHeaders } from '../config';
+import { API_CONFIG, getDefaultHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
 
 // 请求和响应接口定义
 export interface AiClientQueryRequestDTO {
@@ -58,14 +58,14 @@ export class AiClientAdminService {
       headers: {
         ...getDefaultHeaders(),
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -95,14 +95,14 @@ export class AiClientAdminService {
       headers: {
         ...getDefaultHeaders(),
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -114,14 +114,14 @@ export class AiClientAdminService {
       headers: {
         ...getDefaultHeaders(),
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 }
 
