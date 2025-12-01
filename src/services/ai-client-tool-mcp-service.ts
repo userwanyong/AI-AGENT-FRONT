@@ -2,7 +2,7 @@
  * AI客户端工具MCP API服务
  */
 
-import { API_ENDPOINTS, getDefaultHeaders } from '../config';
+import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely } from '../config';
 
 // 定义响应数据类型
 export interface AiClientToolMcpResponseDTO {
@@ -44,7 +44,7 @@ export class AiClientToolMcpService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiClientToolMcpResponseDTO[]> = await response.json();
+      const result: ApiResponse<AiClientToolMcpResponseDTO[]> = await parseResponseJsonSafely(response);
 
       if (result.code === '0000') {
         return result.data || [];

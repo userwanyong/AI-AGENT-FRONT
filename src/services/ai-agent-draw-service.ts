@@ -1,7 +1,7 @@
 /**
  * AI Agent Draw 配置服务
  */
-import { API_ENDPOINTS, getDefaultHeaders } from '../config';
+import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
 
 export interface AiAgentDrawConfigResponseDTO {
   id?: string;
@@ -47,14 +47,14 @@ export class AiAgentDrawService {
     const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_AGENT_DRAW.QUERY_LIST}`, {
       method: 'POST',
       headers: getDefaultHeaders(),
-      body: JSON.stringify(payload),
+      body: stringifySafely(payload),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   static async getDrawConfig(configId: string): Promise<AiAgentDrawConfigResponseDTO | null> {
@@ -72,7 +72,7 @@ export class AiAgentDrawService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiAgentDrawConfigResponseDTO> = await response.json();
+      const result: ApiResponse<AiAgentDrawConfigResponseDTO> = await parseResponseJsonSafely(response);
 
       if (result.code === '0000') {
         return result.data || null;
@@ -101,7 +101,7 @@ export class AiAgentDrawService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<boolean> = await response.json();
+      const result: ApiResponse<boolean> = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
         return true;
       } else {

@@ -1,7 +1,7 @@
 /**
  * AI Agent 服务
  */
-import {API_ENDPOINTS, getDefaultHeaders} from '../config';
+import {API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely} from '../config';
 
 export interface ArmoryAgentRequestDTO {
   agentId: string;
@@ -34,12 +34,12 @@ export class AiAgentService {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_AGENT.ARMORY_AGENT}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(payload),
+        body: stringifySafely(payload),
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return response.json();
+      return parseResponseJsonSafely(response);
     } catch (error) {
       console.error('装配智能体失败:', error);
       throw error;
@@ -53,7 +53,7 @@ export class AiAgentService {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_AGENT.AUTO_AGENT}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: JSON.stringify({
+        body: stringifySafely({
           sessionId,
           userId: JSON.parse(localStorage.getItem('userInfo') || '{}')?.id || '',
           agentId,

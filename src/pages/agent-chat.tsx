@@ -61,9 +61,11 @@ export const AgentChatPage: React.FC = () => {
 
   const thinkingPanelRef = useRef<HTMLDivElement>(null);
   const resultPanelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   // 游客模式：role=2 仅允许查看历史会话；允许新建与选智能体，但不能发送
   const isGuest = String((userInfo as any)?.role) === '2' || Number((userInfo as any)?.role) === 2;
+  const isAdmin = String((userInfo as any)?.role) === '0' || Number((userInfo as any)?.role) === 0;
   // 记录是否因窗口过窄而自动折叠，避免覆盖用户手动选择
   const autoCollapsedRef = useRef(false);
   // 记录侧边栏显示状态的最新值，避免监听闭包拿到旧值
@@ -82,6 +84,58 @@ export const AgentChatPage: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const toLoginWithClear = () => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userInfo');
+      localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('chatHistory');
+    } catch (e) {}
+    window.location.href = '/login';
+  };
+
+  const GuestLoginToastContent: React.FC = () => (
+    <span>
+      游客模式仅展示,不可操作<br/>请使用默认账号
+      <span
+        style={{ color: 'var(--semi-color-primary)', cursor: 'pointer', textDecoration: 'underline', margin: '0 2px' }}
+        onClick={toLoginWithClear}
+      >
+        登录
+      </span>
+      体验
+    </span>
+  );
+
+  const UseLoginToastContent: React.FC = () => (
+    <span>
+      当前账号权限不足，可使用游客身份
+      <span
+        style={{ color: 'var(--semi-color-primary)', cursor: 'pointer', textDecoration: 'underline', margin: '0 2px' }}
+        onClick={toLoginWithClear}
+      >
+        登录
+      </span>
+      查看效果
+    </span>
+  );
+
+  const showGuestLoginToast = (level: 'info' | 'error' | 'warning' | 'success' = 'info') => {
+    const opt = { content: <GuestLoginToastContent /> } as const;
+    if (level === 'error') Toast.error(opt);
+    else if (level === 'warning') Toast.warning(opt);
+    else if (level === 'success') Toast.success(opt);
+    else Toast.info(opt);
+  };
+
+  const showUseLoginToast = (level: 'info' | 'error' | 'warning' | 'success' = 'info') => {
+    const opt = { content: <UseLoginToastContent /> } as const;
+    if (level === 'error') Toast.error(opt);
+    else if (level === 'warning') Toast.warning(opt);
+    else if (level === 'success') Toast.success(opt);
+    else Toast.info(opt);
   };
 
   // 获取智能体列表
@@ -529,6 +583,10 @@ export const AgentChatPage: React.FC = () => {
 
   // 创建新聊天
   const createNewChat = () => {
+    if (loading) {
+      Toast.info('任务执行中，无法新建会话');
+      return;
+    }
     // 生成新的会话ID
     const newSessionId = generateSessionId();
     setSessionId(newSessionId);
@@ -557,6 +615,10 @@ export const AgentChatPage: React.FC = () => {
 
   // 加载特定聊天历史
   const loadChat = (chat: ChatHistory) => {
+      if (loading) {
+        Toast.info('任务执行中，无法切换会话');
+        return;
+      }
       // 切换会话，历史尚未渲染
       setHistoryRendered(false);
       setIsNewChat(true); 
@@ -590,7 +652,7 @@ export const AgentChatPage: React.FC = () => {
   // 发送消息
   const sendMessage = async () => {
     if (isGuest) {
-      Toast.error('游客模式无法发送消息');
+      showGuestLoginToast('info');
       return;
     }
     if (!input.trim() || loading) return;
@@ -809,7 +871,11 @@ export const AgentChatPage: React.FC = () => {
     if (message.type === 'user') {
       return (
         <div className="message-bubble user">
-          <div className="avatar user">我</div>
+          {userInfo?.avatar ? (
+            <img className="avatar user" src={userInfo.avatar} alt="avatar" style={{ objectFit: 'cover' }} />
+          ) : (
+            <div className="avatar user">我</div>
+          )}
           <div className="message-content user">
             <div className="user-message">
               {message.content}
@@ -874,17 +940,23 @@ export const AgentChatPage: React.FC = () => {
 
   // 渲染聊天历史项
   const renderChatHistoryItem = (chat: ChatHistory) => {
+    const isActive = chat.id === sessionId;
     return (
       <div
-        className="chat-history-item"
+        className={`chat-history-item ${isActive ? 'active' : ''}`}
         key={chat.id}
         onClick={() => {
+          if (loading) {
+            Toast.info('任务执行中，无法切换会话');
+            return;
+          }
           // 若点击的是当前会话，则不进行加载
           if (chat.id === sessionId) {
             return;
           }
           loadChat(chat);
         }}
+        style={loading ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}
       >
         <div className="chat-history-title">
           {chat.title || '未命名对话'}
@@ -895,7 +967,7 @@ export const AgentChatPage: React.FC = () => {
           okText="删除"
           cancelText="取消"
           onConfirm={async () => {
-            if (isGuest) { Toast.info('游客模式不可删除历史会话'); return; }
+            if (isGuest) { showGuestLoginToast('info'); return; }
             await deleteChatHistory(chat.id);
           }}
         >
@@ -918,6 +990,12 @@ export const AgentChatPage: React.FC = () => {
 
   // 案例数据
   const agentCases = {
+    '33': [
+      { title: '接口和实现类的命名的两套规则是什么', content: '接口和实现类的命名的两套规则是什么' },
+      { title: '解释一下POJO的含义', content: '解释一下POJO的含义' },
+      { title: '表示"一切ok"的错误码是多少', content: '表示"一切ok"的错误码是多少' },
+      { title: '列出所有错误码列表', content: '列出所有错误码列表' }
+    ],
     '31': [
       { title: '列出所有仪表盘', content: '列出所有仪表盘' },
       { title: '根据MySQL监控（主）面板数据，分析现在mysql状态', content: '根据MySQL监控（主）面板数据，分析现在mysql状态' },
@@ -936,7 +1014,7 @@ export const AgentChatPage: React.FC = () => {
       { title: '对象问她的闺蜜谁好看我说都好看，她生气了', content: '对象问她的闺蜜谁好看我说都好看，她生气了' },
     ],
     '26': [
-      { title: '生成一篇Springboot的学习路线的文章，将文章发送至掘金平台，之后进行微信公众号通知（平台：掘进、主题：为文章标题、描述：为文章简述、跳转地址：为发布文章到掘金获取 http url 文章地址"）', content: '生成一篇Springboot的学习路线的文章，将文章发送至掘金平台，之后进行微信公众号通知（平台：掘进、主题：为文章标题、描述：为文章简述、跳转地址：为发布文章到掘金获取 http url 文章地址"）' },
+      { title: '搜索并生成一篇SpringBoot的学习路线的文章，将文章发送至掘金平台，之后进行微信公众号通知（平台：掘金、主题：为文章标题、描述：为文章简述、跳转地址：为发布文章到掘金获取 http url 文章地址"）', content: '搜索并生成一篇SpringBoot的学习路线的文章，将文章发送至掘金平台，之后进行微信公众号通知（平台：掘金、主题：为文章标题、描述：为文章简述、跳转地址：为发布文章到掘金获取 http url 文章地址"）' },
     ]
   };
 
@@ -999,7 +1077,14 @@ export const AgentChatPage: React.FC = () => {
                 )}
                 <div className="section-divider" />
                 <div className="section-content">
-                  <Button className="new-chat-button" icon={<IconEdit />} onClick={createNewChat}>新建对话</Button>
+                  <Button 
+                    className="new-chat-button" 
+                    icon={<IconEdit />} 
+                    onClick={createNewChat}
+                    style={loading ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}
+                  >
+                    新建对话
+                  </Button>
                 </div>
                 <div className="section-divider" />
                 <div className="section-title">对话历史</div>
@@ -1054,7 +1139,7 @@ export const AgentChatPage: React.FC = () => {
                       content={
                         <div className="sidebar-user-popover">
                             <div className="sidebar-user-header">
-                              <Avatar size="small" color="blue">
+                              <Avatar size="small" color="blue" src={userInfo?.avatar || undefined}>
                                 {userInfo?.username?.[0]?.toUpperCase() || 'U'}
                               </Avatar>
                               <div className="sidebar-user-basic">
@@ -1066,8 +1151,8 @@ export const AgentChatPage: React.FC = () => {
                               <div
                                 className="user-action-item"
                                 onClick={() => {
-                                  if (isGuest) { Toast.info('游客模式不可使用个人中心'); return; }
-                                  Toast.info('打开个人中心');
+                                  if (isGuest) { showGuestLoginToast('info'); return; }
+                                  navigate('/user-info');
                                 }}
                                 style={isGuest ? { cursor: 'not-allowed' } : undefined}
                               > 
@@ -1077,8 +1162,8 @@ export const AgentChatPage: React.FC = () => {
                               <div
                                 className="user-action-item"
                                 onClick={() => {
-                                  if (isGuest) { Toast.info('游客模式不可修改密码'); return; }
-                                  Toast.info('打开修改密码');
+                                  if (isGuest) { showGuestLoginToast('info'); return; }
+                                  navigate('/change-password');
                                 }}
                                 style={isGuest ? { cursor: 'not-allowed' } : undefined}
                               > 
@@ -1088,7 +1173,7 @@ export const AgentChatPage: React.FC = () => {
                               <div
                                 className="user-action-item"
                                 onClick={() => {
-                                  if (isGuest) { Toast.info('游客模式不可进入后台管理'); return; }
+                                  if (!isAdmin) { Toast.warning('权限不足'); return; }
                                   navigate('/agent-list');
                                 }}
                                 style={isGuest ? { cursor: 'not-allowed' } : undefined}
@@ -1108,7 +1193,7 @@ export const AgentChatPage: React.FC = () => {
                         </div>
                       }
                     >
-                      <Avatar size="small" color="blue">
+                      <Avatar size="small" color="blue" src={userInfo?.avatar || undefined}>
                         {userInfo?.username?.[0]?.toUpperCase() || 'U'}
                       </Avatar>
                     </Popover>
@@ -1262,6 +1347,7 @@ export const AgentChatPage: React.FC = () => {
                             sendMessage();
                           }
                         }}
+                        ref={inputRef}
                       />
                       <div className="composer-right">
                       </div>
@@ -1294,6 +1380,14 @@ export const AgentChatPage: React.FC = () => {
                                   onClick={() => {
                                     setInput(item.content);
                                     setShowCaseDropdown(false);
+                                    setTimeout(() => {
+                                      const el = inputRef.current;
+                                      if (el) {
+                                        el.focus();
+                                        const len = el.value.length;
+                                        el.setSelectionRange(len, len);
+                                      }
+                                    }, 0);
                                   }}
                                 >
                                   {item.title}
@@ -1330,14 +1424,43 @@ export const AgentChatPage: React.FC = () => {
                                 if (!isNewChat) {
                                   return; // 历史会话禁用智能体选择
                                 }
+                                if (!isAdmin && agent.strategy !== 'commonExecuteStrategy') {
+                                  showUseLoginToast('info');
+                                  return;
+                                }
                                 setSelectedAgentId(agent.id);
                                 setShowAgentDropdown(false);
                               }}
                               className={`agent-dropdown-item ${selectedAgentId === agent.id ? 'selected' : ''}`}
-                              style={!isNewChat ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+                              style={
+                                !isNewChat
+                                  ? { pointerEvents: 'none', opacity: 0.6 }
+                                  : (!isAdmin && agent.strategy !== 'commonExecuteStrategy')
+                                  ? { cursor: 'not-allowed', opacity: 0.6 }
+                                  : undefined
+                              }
                             >
                               <div className="agent-item-info">
-                                <span className="agent-item-name">{agent.name}</span>
+                                <span className="agent-item-name">
+                                  {agent.name}
+                                  {agent.strategy !== 'commonExecuteStrategy' && (
+                                    <span
+                                      style={{
+                                        marginLeft: 3,
+                                        fontSize: 10,
+                                        padding: '0px 4px',
+                                        borderRadius: 4,
+                                        background: 'var(--semi-color-primary)',
+                                        color: '#fff',
+                                        transform: 'translateY(-3px)',
+                                        display: 'inline-block',
+                                        blockSize: '15px'
+                                      }}
+                                    >
+                                      高级
+                                    </span>
+                                  )}
+                                </span>
                                 <span className="agent-item-desc">{agent.description || ''}</span>
                               </div>
                               <div className="agent-item-right">
@@ -1354,21 +1477,21 @@ export const AgentChatPage: React.FC = () => {
                           <span className="agent-step-label">最大执行轮数:</span>
                           <div 
                             className={`agent-step-button ${selectedMaxStep === '3' ? 'selected' : ''}`}
-                            onClick={() => { if (isGuest) { Toast.info('游客模式不可调整执行轮数'); return; } setSelectedMaxStep('3'); }}
+                            onClick={() => { if (isGuest) { showGuestLoginToast('info'); return; } setSelectedMaxStep('3'); }}
                             style={isGuest ? { cursor: 'not-allowed' } : undefined}
                           >
                             3
                           </div>
                           <div 
                             className={`agent-step-button ${selectedMaxStep === '5' ? 'selected' : ''}`}
-                            onClick={() => { if (isGuest) { Toast.info('游客模式不可调整执行轮数'); return; } setSelectedMaxStep('5'); }}
+                            onClick={() => { if (isGuest) { showGuestLoginToast('info'); return; } setSelectedMaxStep('5'); }}
                             style={isGuest ? { cursor: 'not-allowed' } : undefined}
                           >
                             5
                           </div>
                           <div 
                             className={`agent-step-button ${selectedMaxStep === '10' ? 'selected' : ''}`}
-                            onClick={() => { if (isGuest) { Toast.info('游客模式不可调整执行轮数'); return; } setSelectedMaxStep('10'); }}
+                            onClick={() => { if (isGuest) { showGuestLoginToast('info'); return; } setSelectedMaxStep('10'); }}
                             style={isGuest ? { cursor: 'not-allowed' } : undefined}
                           >
                             10

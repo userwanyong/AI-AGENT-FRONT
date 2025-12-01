@@ -16,6 +16,8 @@ import {
   PromptManagement,
   McpManagement,
   AgentChatPage,
+  ChangePasswordPage,
+  UserInfoPage,
 } from './pages';
 
 // 统一的认证检查函数
@@ -145,6 +147,22 @@ const App: React.FC = () => (
         element={
           <ProtectedRoute>
             <McpManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user-info"
+        element={
+          <ProtectedRoute>
+            <UserInfoPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/change-password"
+        element={
+          <ProtectedRoute>
+            <ChangePasswordPage />
           </ProtectedRoute>
         }
       />

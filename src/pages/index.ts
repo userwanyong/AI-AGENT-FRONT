@@ -10,3 +10,5 @@ export { ModelManagement } from './model-management';
 export { PromptManagement } from './prompt-management';
 export { McpManagement } from './mcp-management';
 export { AgentChatPage } from './agent-chat';
+export { default as ChangePasswordPage } from './change-password';
+export { default as UserInfoPage } from './user-info';

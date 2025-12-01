@@ -2,7 +2,7 @@
  * AI客户端系统提示词API服务
  */
 
-import { API_ENDPOINTS, getDefaultHeaders } from '../config';
+import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely } from '../config';
 
 // 定义响应数据类型
 export interface AiClientSystemPromptResponseDTO {
@@ -44,7 +44,7 @@ export class AiClientSystemPromptService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiClientSystemPromptResponseDTO[]> = await response.json();
+      const result: ApiResponse<AiClientSystemPromptResponseDTO[]> = await parseResponseJsonSafely(response);
 
       if (result.code === '0000') {
         return result.data || [];

@@ -4,13 +4,14 @@
  */
 
 // 环境变量配置
+import JSONbig from 'json-bigint';
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
 
 // 基础配置
 export const API_CONFIG = {
   // 基础域名配置
-  BASE_DOMAIN: isDevelopment ? 'http://115.190.238.109:8071' : 'http://115.190.238.109:8071',
+  BASE_DOMAIN: isDevelopment ? 'http://120.48.70.239:8071' : 'http://120.48.70.239:8071',
   
   // API 版本
   API_VERSION: 'v1',
@@ -104,6 +105,18 @@ export const API_ENDPOINTS = {
     QUERY_AGENT_ENABLED: '/agent/query-enabled',
     UPDATE_AGENT: '/agent/update',
   },
+
+  USER: {
+    BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/user`,
+    UPDATE_PWD: '/pwd',
+    RESET_PWD: '/resetPwd',
+    INFO: '/info',
+    
+  },
+  FILE: {
+    BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/file`,
+    UPLOAD: '/upload',
+  },
   
 
 } as const;
@@ -136,3 +149,27 @@ export const ENV_UTILS = {
   isProduction,
   isTest: process.env.NODE_ENV === 'test',
 } as const;
+
+/**
+ * 解析响应文本，保留超过 JS 安全整数范围的大整数为字符串
+ */
+export const parseResponseJsonSafely = async (response: Response): Promise<any> => {
+  const text = await response.text();
+  const JSONSafe = JSONbig({ storeAsString: true });
+  return JSONSafe.parse(text);
+};
+
+/**
+ * JSON 序列化时保留大整数为字符串，避免请求体中精度丢失
+ */
+export const stringifySafely = (payload: any): string => {
+  return JSON.stringify(payload, (_key, value) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    if (typeof value === 'number' && Number.isInteger(value) && Math.abs(value) > Number.MAX_SAFE_INTEGER) {
+      return value.toString();
+    }
+    return value;
+  });
+};

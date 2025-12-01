@@ -1,4 +1,4 @@
-import { API_CONFIG, getDefaultHeaders, getUploadHeaders } from '../config';
+import { API_CONFIG, getDefaultHeaders, getUploadHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
 
 // 请求和响应接口定义
 export interface AiClientRagOrderRequestDTO {
@@ -55,14 +55,14 @@ export class AiClientRagOrderAdminService {
       headers: {
         ...getDefaultHeaders(),
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -80,7 +80,7 @@ export class AiClientRagOrderAdminService {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -94,14 +94,14 @@ export class AiClientRagOrderAdminService {
       headers: {
         ...getDefaultHeaders(),
       },
-      body: JSON.stringify(request),
+      body: stringifySafely(request),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 
   /**
@@ -127,7 +127,7 @@ export class AiClientRagOrderAdminService {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return await parseResponseJsonSafely(response);
   }
 }
 
