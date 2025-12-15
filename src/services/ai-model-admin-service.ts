@@ -2,7 +2,12 @@
  * AI客户端模型管理API服务
  */
 
-import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
+import {
+  API_ENDPOINTS,
+  getDefaultHeaders,
+  parseResponseJsonSafely,
+  stringifySafely,
+} from '../config';
 
 // 定义请求数据类型
 export interface AiClientModelRequestDTO {

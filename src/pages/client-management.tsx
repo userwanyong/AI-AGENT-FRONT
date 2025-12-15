@@ -13,8 +13,17 @@ import {
   Tag,
   Popconfirm,
   Card,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
-import { IconSearch, IconPlus, IconEdit, IconDelete, IconRefresh } from '@douyinfe/semi-icons';
+import {
+  IconSearch,
+  IconPlus,
+  IconEdit,
+  IconDelete,
+  IconRefresh,
+  IconMore,
+} from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
 import {
@@ -38,7 +47,7 @@ const ClientManagementLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -107,7 +116,13 @@ const ActionButton = styled(Button)`
 
 export const ClientManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiClientResponseDTO[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -243,32 +258,46 @@ export const ClientManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 130,
-      fixed: 'right' as const,
-      render: (_: any, record: AiClientResponseDTO) => (
-        <Space>
-          <ActionButton
-            theme="borderless"
-            type="primary"
-            icon={<IconEdit />}
-            size="small"
-            onClick={() => handleEdit(record)}
+      width: isMobile ? 80 : 130,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: AiClientResponseDTO) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => handleEdit(record)}>编辑</Dropdown.Item>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            编辑
-          </ActionButton>
-          <Popconfirm
-            title="确定要删除这个客户端配置吗？"
-            content="删除后无法恢复，请谨慎操作"
-            onConfirm={() => handleDelete(record)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
-              删除
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <ActionButton
+              theme="borderless"
+              type="primary"
+              icon={<IconEdit />}
+              size="small"
+              onClick={() => handleEdit(record)}
+            >
+              编辑
             </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <Popconfirm
+              title="确定要删除这个客户端配置吗？"
+              content="删除后无法恢复，请谨慎操作"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -417,7 +446,12 @@ export const ClientManagement: React.FC = () => {
 
   return (
     <ClientManagementLayout>
-      <Sidebar collapsed={collapsed} selectedKey="client-management" onSelect={handleNavigation} />
+      <Sidebar
+        collapsed={collapsed}
+        selectedKey="client-management"
+        onSelect={handleNavigation}
+        onToggle={() => setCollapsed(!collapsed)}
+      />
       <MainContent $collapsed={collapsed}>
         <ContentArea>
           <Header
@@ -469,8 +503,6 @@ export const ClientManagement: React.FC = () => {
                       currentPage: currentPage,
                       pageSize: pageSize,
                       total: total,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
                       onChange: handlePageChange,
                     }}
                     rowKey="id"

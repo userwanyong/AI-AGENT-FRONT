@@ -46,7 +46,9 @@ export class AiClientModelService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiClientModelResponseDTO[]> = await parseResponseJsonSafely(response);
+      const result: ApiResponse<AiClientModelResponseDTO[]> = await parseResponseJsonSafely(
+        response
+      );
 
       if (result.code === '0000') {
         return result.data || [];

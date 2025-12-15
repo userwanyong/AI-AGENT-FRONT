@@ -1,4 +1,10 @@
-import { API_CONFIG, getDefaultHeaders, getUploadHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
+import {
+  API_CONFIG,
+  getDefaultHeaders,
+  getUploadHeaders,
+  parseResponseJsonSafely,
+  stringifySafely,
+} from '../config';
 
 // 请求和响应接口定义
 export interface AiClientRagOrderRequestDTO {

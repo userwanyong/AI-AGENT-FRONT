@@ -80,7 +80,7 @@ interface UserInfo {
 
 export const AgentConfigPage: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   useEffect(() => {
@@ -153,11 +153,16 @@ export const AgentConfigPage: React.FC = () => {
     return null;
   }
 
-  const sidebarWidth = collapsed ? 80 : 280;
+  const sidebarWidth = collapsed ? 80 : 245;
 
   return (
     <AgentConfigLayout>
-      <Sidebar selectedKey="agent-config" onSelect={handleNavigation} collapsed={collapsed} />
+      <Sidebar
+        selectedKey="agent-config"
+        onSelect={handleNavigation}
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+      />
       <MainContent>
         <ContentWrapper $sidebarWidth={sidebarWidth}>
           <Header

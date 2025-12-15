@@ -16,8 +16,17 @@ import {
   Select,
   Modal,
   TextArea,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
-import { IconSearch, IconPlus, IconEdit, IconDelete, IconRefresh } from '@douyinfe/semi-icons';
+import {
+  IconSearch,
+  IconPlus,
+  IconEdit,
+  IconDelete,
+  IconRefresh,
+  IconMore,
+} from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
 import {
@@ -41,7 +50,7 @@ const AdvisorManagementLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -109,7 +118,13 @@ const ActionButton = styled(Button)`
 
 export const AdvisorManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiClientAdvisorResponseDTO[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -196,12 +211,12 @@ export const AdvisorManagement: React.FC = () => {
   // 表格列定义
   // 顾问类型展示映射
   const TYPE_LABEL_MAP: Record<string, string> = {
-      MessageChatMemoryAdvisor:"内存记忆-历史+用户消息",
-      PromptChatMemoryAdvisor:"内存记忆-历史+系统提示词",
-      MessageChatMemoryAdvisorRedis:"redis记忆-历史+用户消息",
-      PromptChatMemoryAdvisorRedis:"redis记忆-历史+系统提示词",
-      SimpleLoggerAdvisor:"日志",
-      RagAnswer:"知识库"
+    MessageChatMemoryAdvisor: '内存记忆-历史+用户消息',
+    PromptChatMemoryAdvisor: '内存记忆-历史+系统提示词',
+    MessageChatMemoryAdvisorRedis: 'redis记忆-历史+用户消息',
+    PromptChatMemoryAdvisorRedis: 'redis记忆-历史+系统提示词',
+    SimpleLoggerAdvisor: '日志',
+    RagAnswer: '知识库',
   };
   const columns = [
     {
@@ -257,32 +272,46 @@ export const AdvisorManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 140,
-      fixed: 'right' as const,
-      render: (_: any, record: AiClientAdvisorResponseDTO) => (
-        <Space>
-          <ActionButton
-            theme="borderless"
-            type="primary"
-            icon={<IconEdit />}
-            size="small"
-            onClick={() => handleEdit(record)}
+      width: isMobile ? 80 : 140,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: AiClientAdvisorResponseDTO) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => handleEdit(record)}>编辑</Dropdown.Item>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            编辑
-          </ActionButton>
-          <Popconfirm
-            title="确定要删除这个顾问配置吗？"
-            content="删除后无法恢复，请谨慎操作"
-            onConfirm={() => handleDelete(record)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
-              删除
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <ActionButton
+              theme="borderless"
+              type="primary"
+              icon={<IconEdit />}
+              size="small"
+              onClick={() => handleEdit(record)}
+            >
+              编辑
             </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <Popconfirm
+              title="确定要删除这个顾问配置吗？"
+              content="删除后无法恢复，请谨慎操作"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -533,7 +562,12 @@ export const AdvisorManagement: React.FC = () => {
 
   return (
     <AdvisorManagementLayout>
-      <Sidebar collapsed={collapsed} selectedKey="advisor-management" onSelect={handleNavigation} />
+      <Sidebar
+        collapsed={collapsed}
+        selectedKey="advisor-management"
+        onSelect={handleNavigation}
+        onToggle={() => setCollapsed(!collapsed)}
+      />
       <MainContent $collapsed={collapsed}>
         <ContentArea>
           <Header
@@ -601,8 +635,6 @@ export const AdvisorManagement: React.FC = () => {
                       currentPage: currentPage,
                       pageSize: pageSize,
                       total: total,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
                       onChange: handlePageChange,
                     }}
                     rowKey="id"
@@ -743,9 +775,7 @@ export const AdvisorManagement: React.FC = () => {
             <Select
               placeholder="请选择顾问类型"
               value={editFormData.type}
-              onChange={(value) =>
-                setEditFormData((prev) => ({ ...prev, type: value as string }))
-              }
+              onChange={(value) => setEditFormData((prev) => ({ ...prev, type: value as string }))}
               style={{ width: '100%', marginTop: '8px' }}
             >
               <Option value="MessageChatMemoryAdvisor">内存记忆-历史+用户消息</Option>

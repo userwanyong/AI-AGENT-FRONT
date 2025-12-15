@@ -1,25 +1,21 @@
+import { useNavigate } from 'react-router-dom';
 import React from 'react';
 
 import styled from 'styled-components';
-import { Nav, Avatar, Popover, Button, Toast } from '@douyinfe/semi-ui';
-import { useNavigate } from 'react-router-dom';
-import {
-  IconApps,
-  IconActivity,
-  IconFolder,
-} from '@douyinfe/semi-icons';
+import { Nav, Avatar, Popover, Button, Toast, IconButton } from '@douyinfe/semi-ui';
+import { IconApps, IconActivity, IconFolder, IconSidebar } from '@douyinfe/semi-icons';
 
 import { theme } from '../../styles/theme';
-
 
 interface SidebarProps {
   selectedKey?: string;
   onSelect?: (key: string) => void;
   collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 const SidebarContainer = styled.div<{ $collapsed: boolean }>`
-  width: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  width: ${(props) => (props.$collapsed ? '80px' : '245px')};
   height: 100vh;
   background: ${theme.colors.bg.primary};
   border-right: 1px solid ${theme.colors.border.secondary};
@@ -82,12 +78,19 @@ const SidebarContent = styled.div`
   overflow-y: auto;
 `;
 
+const SidebarToggle = styled.div<{ $collapsed: boolean }>`
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 1101;
+`;
+
 const StyledNav = styled(Nav)<{ $collapsed: boolean }>`
   background: transparent;
   border: none;
 
   .semi-nav-item {
-    margin: 4px ${theme.spacing.base};
+    margin: 4px 0;
     border-radius: ${theme.borderRadius.base};
     transition: all ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 
@@ -114,6 +117,9 @@ const StyledNav = styled(Nav)<{ $collapsed: boolean }>`
   }
 
   .semi-nav-sub {
+    .semi-nav-sub-title-text {
+      display: ${(props) => (props.$collapsed ? 'none' : 'inline')};
+    }
     .semi-nav-item {
       padding-left: ${(props) => (props.$collapsed ? theme.spacing.base : theme.spacing.xl)};
     }
@@ -209,12 +215,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedKey = 'agent-list',
   onSelect,
   collapsed = false,
+  onToggle,
 }) => {
   const navigate = useNavigate();
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   const rawRole = (userInfo as any)?.role;
   const roleCode = typeof rawRole === 'string' ? parseInt(rawRole, 10) : rawRole;
-  const roleText = roleCode === 0 ? '管理员' : roleCode === 1 ? '用户' : roleCode === 2 ? '游客' : '用户';
+  const roleText =
+    roleCode === 0 ? '管理员' : roleCode === 1 ? '用户' : roleCode === 2 ? '游客' : '用户';
 
   // 添加处理导航的函数
   const handleNavigation = (key: string) => {
@@ -242,12 +250,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <BrandInfo $collapsed={collapsed}>
           <h3>灵犀助手后台</h3>
         </BrandInfo>
+        {!collapsed && (
+          <IconButton
+            theme="borderless"
+            type="tertiary"
+            icon={<IconSidebar />}
+            style={{ marginLeft: 'auto', marginRight: 0 }}
+            onClick={() => onToggle?.()}
+          />
+        )}
       </SidebarHeader>
 
       <SidebarContent>
         <StyledNav
           $collapsed={collapsed}
+          isCollapsed={collapsed}
           selectedKeys={[selectedKey]}
+          subNavProps={{ trigger: 'click', dropdownProps: { trigger: 'click' } }}
           onSelect={({ selectedKeys }: { selectedKeys: string[] }) => {
             const key = selectedKeys[0] as string;
             handleNavigation(key); // 使用新的处理函数
@@ -255,6 +274,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           items={menuItems}
         />
       </SidebarContent>
+      {collapsed && (
+        <SidebarToggle $collapsed={collapsed}>
+          <IconButton
+            size="small"
+            type="secondary"
+            icon={<IconSidebar />}
+            onClick={() => onToggle?.()}
+          />
+        </SidebarToggle>
+      )}
       <SidebarFooter $collapsed={collapsed}>
         <Popover
           trigger="hover"
@@ -267,7 +296,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div style={{ fontSize: 12, color: '#999' }}>{roleText}</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <Button size="small" type="secondary" onClick={handleLogout}>退出登录</Button>
+                <Button size="small" type="secondary" onClick={handleLogout}>
+                  退出登录
+                </Button>
               </div>
             </div>
           }
