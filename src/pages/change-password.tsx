@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+
+import styled from 'styled-components';
 import { Button, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconLock, IconEyeClosed, IconEyeOpened } from '@douyinfe/semi-icons';
+
 import { theme } from '../styles/theme';
-import { Card } from '../components/common';
 import { UserService } from '../services';
+import { Card } from '../components/common';
 
 const { Title } = Typography;
 
@@ -27,7 +29,9 @@ const ChangeCard = styled(Card)`
 `;
 
 const StyledForm = styled(Form)`
-  .semi-form-field { margin-bottom: 4px; }
+  .semi-form-field {
+    margin-bottom: 4px;
+  }
   .semi-input-wrapper {
     background-color: #ffffff;
     border: 1px solid var(--semi-color-border);
@@ -55,13 +59,42 @@ export const ChangePasswordPage: React.FC = () => {
 
   const onSubmit = async (values: Record<string, any>) => {
     try {
-      if (!username) { Toast.error('当前未登录'); return; }
-      if (!values.oldPassword) { Toast.warning('请输入旧密码'); return; }
-      if (!values.newPassword) { Toast.warning('请输入新密码'); return; }
-      if (!values.confirmPassword) { Toast.warning('请再次输入新密码'); return; }
-      if (typeof values.newPassword !== 'string' || values.newPassword.length < 6 || values.newPassword.length > 20) { Toast.error('新密码长度需为6-20位'); return; }
-      if (typeof values.confirmPassword !== 'string' || values.confirmPassword.length < 6 || values.confirmPassword.length > 20) { Toast.error('确认密码长度需为6-20位'); return; }
-      if (values.newPassword !== values.confirmPassword) { Toast.warning('两次输入的新密码不一致'); return; }
+      if (!username) {
+        Toast.error('当前未登录');
+        return;
+      }
+      if (!values.oldPassword) {
+        Toast.warning('请输入旧密码');
+        return;
+      }
+      if (!values.newPassword) {
+        Toast.warning('请输入新密码');
+        return;
+      }
+      if (!values.confirmPassword) {
+        Toast.warning('请再次输入新密码');
+        return;
+      }
+      if (
+        typeof values.newPassword !== 'string' ||
+        values.newPassword.length < 6 ||
+        values.newPassword.length > 20
+      ) {
+        Toast.error('新密码长度需为6-20位');
+        return;
+      }
+      if (
+        typeof values.confirmPassword !== 'string' ||
+        values.confirmPassword.length < 6 ||
+        values.confirmPassword.length > 20
+      ) {
+        Toast.error('确认密码长度需为6-20位');
+        return;
+      }
+      if (values.newPassword !== values.confirmPassword) {
+        Toast.warning('两次输入的新密码不一致');
+        return;
+      }
       setLoading(true);
       const resp = await UserService.updatePassword({
         username,
@@ -90,7 +123,9 @@ export const ChangePasswordPage: React.FC = () => {
   return (
     <Container>
       <ChangeCard>
-        <Title heading={5} style={{ margin: 0 }}>修改密码</Title>
+        <Title heading={5} style={{ margin: 0 }}>
+          修改密码
+        </Title>
         <StyledForm onSubmit={onSubmit}>
           <Form.Input
             field="oldPassword"
@@ -112,7 +147,10 @@ export const ChangePasswordPage: React.FC = () => {
                   setShowOldPassword(!showOldPassword);
                   setTimeout(() => {
                     const el2 = document.getElementById('oldPwd') as HTMLInputElement | null;
-                    if (el2) { el2.focus(); el2.setSelectionRange(start, end); }
+                    if (el2) {
+                      el2.focus();
+                      el2.setSelectionRange(start, end);
+                    }
                   }, 0);
                 }}
                 style={{ padding: '4px' }}
@@ -141,7 +179,10 @@ export const ChangePasswordPage: React.FC = () => {
                   setShowNewPassword(!showNewPassword);
                   setTimeout(() => {
                     const el2 = document.getElementById('newPwd') as HTMLInputElement | null;
-                    if (el2) { el2.focus(); el2.setSelectionRange(start, end); }
+                    if (el2) {
+                      el2.focus();
+                      el2.setSelectionRange(start, end);
+                    }
                   }, 0);
                 }}
                 style={{ padding: '4px' }}
@@ -170,7 +211,10 @@ export const ChangePasswordPage: React.FC = () => {
                   setShowConfirmPassword(!showConfirmPassword);
                   setTimeout(() => {
                     const el2 = document.getElementById('confirmPwd') as HTMLInputElement | null;
-                    if (el2) { el2.focus(); el2.setSelectionRange(start, end); }
+                    if (el2) {
+                      el2.focus();
+                      el2.setSelectionRange(start, end);
+                    }
                   }, 0);
                 }}
                 style={{ padding: '4px' }}
@@ -179,9 +223,13 @@ export const ChangePasswordPage: React.FC = () => {
             style={{ background: '#fff' }}
             id="confirmPwd"
           />
-          <SubmitButton type="primary" htmlType="submit" loading={loading}>确认修改</SubmitButton>
+          <SubmitButton type="primary" htmlType="submit" loading={loading}>
+            确认修改
+          </SubmitButton>
         </StyledForm>
-        <Button theme="borderless" onClick={() => navigate(-1)} style={{ marginTop: 8 }}>返回</Button>
+        <Button theme="borderless" onClick={() => navigate(-1)} style={{ marginTop: 8 }}>
+          返回
+        </Button>
       </ChangeCard>
     </Container>
   );

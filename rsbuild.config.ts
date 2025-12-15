@@ -17,5 +17,13 @@ export default defineConfig({
   },
   html: {
     title: '灵犀助手',
+    tags: [
+      {
+        tag: 'script',
+        attrs: { src: '/scripts/loading.js' },
+        head: false,
+        append: false,
+      },
+    ],
   },
 });

@@ -30,7 +30,12 @@ const LoginContainer = styled.div`
     right: -18vw;
     width: 60vw;
     height: 60vh;
-    background: radial-gradient(circle at 30% 30%, #b7d0bd 0%, #93b79c 60%, rgba(147, 183, 156, 0.4) 100%);
+    background: radial-gradient(
+      circle at 30% 30%,
+      #b7d0bd 0%,
+      #93b79c 60%,
+      rgba(147, 183, 156, 0.4) 100%
+    );
     border-radius: 50%;
     filter: blur(2px);
     z-index: 0; /* 背景层级最低 */
@@ -43,7 +48,12 @@ const LoginContainer = styled.div`
     left: -18vw;
     width: 55vw;
     height: 55vh;
-    background: radial-gradient(circle at 70% 70%, #b7d0bd 0%, #93b79c 60%, rgba(147, 183, 156, 0.35) 100%);
+    background: radial-gradient(
+      circle at 70% 70%,
+      #b7d0bd 0%,
+      #93b79c 60%,
+      rgba(147, 183, 156, 0.35) 100%
+    );
     border-radius: 50%;
     filter: blur(2px);
     z-index: 0; /* 背景层级最低 */
@@ -127,8 +137,12 @@ const BroadcastWrapper = styled.div`
   align-items: center;
 
   @keyframes tickerScroll {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
   }
 
   .track-wrap {
@@ -144,9 +158,21 @@ const BroadcastWrapper = styled.div`
     font-size: ${theme.typography.fontSize.sm};
   }
 
-  &:hover .track-wrap { animation-play-state: paused; }
-  -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0, rgba(0,0,0,1) 3px, rgba(0,0,0,1) 100%);
-  mask-image: linear-gradient(to right, rgba(0,0,0,0) 0, rgba(0,0,0,1) 3px, rgba(0,0,0,1) 100%);
+  &:hover .track-wrap {
+    animation-play-state: paused;
+  }
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 1) 3px,
+    rgba(0, 0, 0, 1) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 1) 3px,
+    rgba(0, 0, 0, 1) 100%
+  );
 `;
 const StyledForm = styled(Form)`
   .semi-form-field {
@@ -181,7 +207,6 @@ const StyledForm = styled(Form)`
     }
   }
 `;
-
 
 const LoginButton = styled(Button)`
   width: 100%;
@@ -258,8 +283,12 @@ const BeamSvg = styled.svg`
   }
 
   @keyframes dashMove {
-    from { stroke-dashoffset: 0; }
-    to { stroke-dashoffset: -100; } /* 负方向以顺时针效果 */
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      stroke-dashoffset: -100;
+    } /* 负方向以顺时针效果 */
   }
 `;
 
@@ -269,24 +298,29 @@ type GuestGlowButtonProps = {
   children?: React.ReactNode;
 };
 
-const GuestGlowButton: React.FC<GuestGlowButtonProps>
-  = ({ onClick, size = 'default', children }) => (
-    <GlowWrapper>
-      <GlowButtonInner onClick={onClick} size={size}>{children}</GlowButtonInner>
-      <BeamSvg viewBox="0 0 100 48" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="beamGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ff6b6b" />
-            <stop offset="25%" stopColor="#f9ca24" />
-            <stop offset="50%" stopColor="#6ab04c" />
-            <stop offset="75%" stopColor="#00a8ff" />
-            <stop offset="100%" stopColor="#9c88ff" />
-          </linearGradient>
-        </defs>
-        <rect x="2" y="2" width="96" height="44" rx="8" ry="8" pathLength="100" />
-      </BeamSvg>
-    </GlowWrapper>
-  );
+const GuestGlowButton: React.FC<GuestGlowButtonProps> = ({
+  onClick,
+  size = 'default',
+  children,
+}) => (
+  <GlowWrapper>
+    <GlowButtonInner onClick={onClick} size={size}>
+      {children}
+    </GlowButtonInner>
+    <BeamSvg viewBox="0 0 100 48" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="beamGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#ff6b6b" />
+          <stop offset="25%" stopColor="#f9ca24" />
+          <stop offset="50%" stopColor="#6ab04c" />
+          <stop offset="75%" stopColor="#00a8ff" />
+          <stop offset="100%" stopColor="#9c88ff" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="96" height="44" rx="8" ry="8" pathLength="100" />
+    </BeamSvg>
+  </GlowWrapper>
+);
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -318,9 +352,10 @@ const LoginPage: React.FC = () => {
 
       if (isLoginSuccess) {
         // 统一提取与规范化用户信息，供 agent-chat 页面展示
-        const raw = typeof isLoginSuccess === 'object'
-          ? (isLoginSuccess as any).userInfo || (isLoginSuccess as any).data || isLoginSuccess
-          : {};
+        const raw =
+          typeof isLoginSuccess === 'object'
+            ? (isLoginSuccess as any).userInfo || (isLoginSuccess as any).data || isLoginSuccess
+            : {};
         const normalized = {
           id: raw.id ?? raw.userId ?? raw.uid ?? undefined,
           username: raw.username ?? raw.name ?? values.username,
@@ -391,10 +426,19 @@ const LoginPage: React.FC = () => {
 
   const handleResetPwd = async () => {
     try {
-      if (resetLoading) { Toast.info('正在重置，请稍候'); return; }
-      if (resetCooldown > 0) { Toast.info(`密码已重置为123456，请勿频繁点击`); return; }
+      if (resetLoading) {
+        Toast.info('正在重置，请稍候');
+        return;
+      }
+      if (resetCooldown > 0) {
+        Toast.info(`密码已重置为123456，请勿频繁点击`);
+        return;
+      }
       const username = formApi?.getValue('username') || '';
-      if (!username) { Toast.error('请输入账号后再重置密码'); return; }
+      if (!username) {
+        Toast.error('请输入账号后再重置密码');
+        return;
+      }
       setResetLoading(true);
       const resp = await UserService.resetPassword(username);
       if (resp.code === '0000') {
@@ -424,23 +468,51 @@ const LoginPage: React.FC = () => {
           </Brand>
           <BroadcastWrapper>
             <div className="track-wrap">
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
-              <div className="track">⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录</div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
+              <div className="track">
+                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              </div>
             </div>
           </BroadcastWrapper>
         </Header>
 
-        <StyledForm onSubmit={handleLogin} initValues={{ username: 'wanyj', password: '123456', remember: true }} getFormApi={setFormApi}>
+        <StyledForm
+          onSubmit={handleLogin}
+          initValues={{ username: 'wanyj', password: '123456', remember: true }}
+          getFormApi={setFormApi}
+        >
           <Form.Input
             field="username"
             label="用户名"
@@ -468,7 +540,10 @@ const LoginPage: React.FC = () => {
                   setShowPassword(!showPassword);
                   setTimeout(() => {
                     const el2 = document.getElementById('loginPwd') as HTMLInputElement | null;
-                    if (el2) { el2.focus(); el2.setSelectionRange(start, end); }
+                    if (el2) {
+                      el2.focus();
+                      el2.setSelectionRange(start, end);
+                    }
                   }, 0);
                 }}
                 style={{ padding: '4px' }}
@@ -478,7 +553,15 @@ const LoginPage: React.FC = () => {
             rules={[{ required: true, message: '请输入密码' }]}
           />
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', marginBottom: '8px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: '4px',
+              marginBottom: '8px',
+            }}
+          >
             <Form.Checkbox field="remember" noLabel>
               记住我
             </Form.Checkbox>
@@ -505,7 +588,9 @@ const LoginPage: React.FC = () => {
         </StyledForm>
 
         <RoleRow>
-          <GuestGlowButton onClick={guestLogin} size="large">以游客身份登录</GuestGlowButton>
+          <GuestGlowButton onClick={guestLogin} size="large">
+            以游客身份登录
+          </GuestGlowButton>
         </RoleRow>
       </LoginCard>
     </LoginContainer>

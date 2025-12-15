@@ -16,6 +16,8 @@ import {
   Select,
   Modal,
   TextArea,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
 import {
   IconSearch,
@@ -24,6 +26,7 @@ import {
   IconDelete,
   IconRefresh,
   IconEyeOpened,
+  IconMore,
 } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
@@ -48,7 +51,7 @@ const ClientToolMcpManagementLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -143,7 +146,13 @@ const ConfigModalContent = styled.pre`
 
 export const McpManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiClientToolMcpResponseDTO[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -310,41 +319,60 @@ export const McpManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
-      fixed: 'right' as const,
-      render: (_: any, record: AiClientToolMcpResponseDTO) => (
-        <Space>
-          <ActionButton
-            theme="borderless"
-            type="tertiary"
-            icon={<IconEyeOpened />}
-            size="small"
-            onClick={() => showConfigDetail(record.transportConfig, record.name || '')}
+      width: isMobile ? 80 : 200,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: AiClientToolMcpResponseDTO) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item
+                  onClick={() => showConfigDetail(record.transportConfig, record.name || '')}
+                >
+                  查看
+                </Dropdown.Item>
+                <Dropdown.Item onClick={() => handleEdit(record)}>编辑</Dropdown.Item>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            查看
-          </ActionButton>
-          <ActionButton
-            theme="borderless"
-            type="primary"
-            icon={<IconEdit />}
-            size="small"
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </ActionButton>
-          <Popconfirm
-            title="确定要删除这个MCP配置吗？"
-            content="删除后无法恢复，请谨慎操作"
-            onConfirm={() => handleDelete(record)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
-              删除
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <ActionButton
+              theme="borderless"
+              type="tertiary"
+              icon={<IconEyeOpened />}
+              size="small"
+              onClick={() => showConfigDetail(record.transportConfig, record.name || '')}
+            >
+              查看
             </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <ActionButton
+              theme="borderless"
+              type="primary"
+              icon={<IconEdit />}
+              size="small"
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </ActionButton>
+            <Popconfirm
+              title="确定要删除这个MCP配置吗？"
+              content="删除后无法恢复，请谨慎操作"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -649,6 +677,7 @@ export const McpManagement: React.FC = () => {
         collapsed={collapsed}
         selectedKey="client-tool-mcp-management"
         onSelect={handleNavigation}
+        onToggle={() => setCollapsed(!collapsed)}
       />
       <MainContent $collapsed={collapsed}>
         <ContentArea>
@@ -714,8 +743,6 @@ export const McpManagement: React.FC = () => {
                       currentPage: currentPage,
                       pageSize: pageSize,
                       total: total,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
                       onChange: handlePageChange,
                     }}
                     rowKey="id"
@@ -801,8 +828,7 @@ export const McpManagement: React.FC = () => {
                     style={{ width: '100%', fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace' }}
                   />
                   <Typography.Text type="tertiary" size="small">
-                    请输入有效的JSON格式配置，例如：{'{'}"command": "node", "args": ["server.js"]
-                    {'}'}
+                    请输入有效的JSON格式配置，例如：{'{'}&quot;command&quot;: &quot;node&quot;, &quot;args&quot;: [&quot;server.js&quot;]{'}'}
                   </Typography.Text>
                 </div>
 
@@ -907,8 +933,7 @@ export const McpManagement: React.FC = () => {
                     style={{ width: '100%', fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace' }}
                   />
                   <Typography.Text type="tertiary" size="small">
-                    请输入有效的JSON格式配置，例如：{'{'}"command": "node", "args": ["server.js"]
-                    {'}'}
+                    请输入有效的JSON格式配置，例如：{'{'}&quot;command&quot;: &quot;node&quot;, &quot;args&quot;: [&quot;server.js&quot;]{'}'}
                   </Typography.Text>
                 </div>
 

@@ -11,6 +11,7 @@ import {
   WorkflowNodeEntity,
   WorkflowNodeJSON,
 } from '@flowgram.ai/free-layout-editor';
+
 import { WorkflowNodeType } from '../nodes/constants';
 
 /**
@@ -50,9 +51,12 @@ export const onDragLineEnd = async (ctx: FreeLayoutPluginContext, params: onDrag
   } catch (e) {
     srcType = containerNode?.type as string | undefined;
   }
-  const isFromAgent = srcType === (WorkflowNodeType.Agent as unknown as string) || srcType === 'agent';
-  const isFromModel = srcType === (WorkflowNodeType.Model as unknown as string) || srcType === 'model';
-  const isFromClient = srcType === (WorkflowNodeType.Client as unknown as string) || srcType === 'client';
+  const isFromAgent =
+    srcType === (WorkflowNodeType.Agent as unknown as string) || srcType === 'agent';
+  const isFromModel =
+    srcType === (WorkflowNodeType.Model as unknown as string) || srcType === 'model';
+  const isFromClient =
+    srcType === (WorkflowNodeType.Client as unknown as string) || srcType === 'client';
   const result = await nodePanelService.singleSelectNodePanel({
     position: mousePos,
     containerNode,

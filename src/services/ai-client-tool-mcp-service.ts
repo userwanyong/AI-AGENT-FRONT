@@ -44,7 +44,9 @@ export class AiClientToolMcpService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiClientToolMcpResponseDTO[]> = await parseResponseJsonSafely(response);
+      const result: ApiResponse<AiClientToolMcpResponseDTO[]> = await parseResponseJsonSafely(
+        response
+      );
 
       if (result.code === '0000') {
         return result.data || [];

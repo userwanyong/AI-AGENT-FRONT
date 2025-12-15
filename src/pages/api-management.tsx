@@ -13,6 +13,8 @@ import {
   Tag,
   Popconfirm,
   Card,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
 import {
   IconSearch,
@@ -20,6 +22,7 @@ import {
   IconDelete,
   IconRefresh,
   IconPlus,
+  IconMore,
 } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
@@ -44,7 +47,7 @@ const AiClientApiManagementLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -112,7 +115,13 @@ const ActionButton = styled(Button)`
 
 export const ApiManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiClientApiResponseDTO[]>([]);
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -245,32 +254,46 @@ export const ApiManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 190,
-      fixed: 'right' as const,
-      render: (_: any, record: any) => (
-        <Space>
-          <ActionButton
-            type="primary"
-            size="small"
-            theme="borderless"
-            icon={<IconEdit />}
-            onClick={() => handleEdit(record)}
+      width: isMobile ? 80 : 190,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: any) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => handleEdit(record)}>编辑</Dropdown.Item>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record.id)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            编辑
-          </ActionButton>
-          <Popconfirm
-            title="确定要删除这个API配置吗？"
-            content="删除后无法恢复"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <ActionButton theme="borderless" type="danger" size="small" icon={<IconDelete />}>
-              删除
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <ActionButton
+              type="primary"
+              size="small"
+              theme="borderless"
+              icon={<IconEdit />}
+              onClick={() => handleEdit(record)}
+            >
+              编辑
             </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <Popconfirm
+              title="确定要删除这个API配置吗？"
+              content="删除后无法恢复"
+              onConfirm={() => handleDelete(record.id)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <ActionButton theme="borderless" type="danger" size="small" icon={<IconDelete />}>
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -441,6 +464,7 @@ export const ApiManagement: React.FC = () => {
         collapsed={collapsed}
         selectedKey="ai-client-api-management"
         onSelect={handleNavigation}
+        onToggle={() => setCollapsed(!collapsed)}
       />
       <MainContent $collapsed={collapsed}>
         <ContentArea>

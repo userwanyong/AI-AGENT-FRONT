@@ -1,8 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import React from 'react';
-import { Toast } from '@douyinfe/semi-ui';
+import React, { useEffect } from 'react';
 
 import { createRoot } from 'react-dom/client';
+import { Toast } from '@douyinfe/semi-ui';
 
 import {
   LoginPage,
@@ -73,112 +73,122 @@ window.fetch = async (...args) => {
   return response;
 };
 
-const App: React.FC = () => (
-  <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-    <Routes>
-      <Route path="/login" element={<LoginRedirect />} />
-      {/* 移除工作台（Dashboard）路由 */}
-      <Route
-        path="/agent-config"
-        element={
-          <ProtectedRoute>
-            <AgentConfigPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/agent-list"
-        element={
-          <ProtectedRoute>
-            <AgentListPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client-management"
-        element={
-          <ProtectedRoute>
-            <ClientManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/ai-client-api-management"
-        element={
-          <ProtectedRoute>
-            <ApiManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/advisor-management"
-        element={
-          <ProtectedRoute>
-            <AdvisorManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rag-order-management"
-        element={
-          <ProtectedRoute>
-            <RagManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client-model-management"
-        element={
-          <ProtectedRoute>
-            <ModelManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client-system-prompt-management"
-        element={
-          <ProtectedRoute>
-            <PromptManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client-tool-mcp-management"
-        element={
-          <ProtectedRoute>
-            <McpManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/user-info"
-        element={
-          <ProtectedRoute>
-            <UserInfoPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/change-password"
-        element={
-          <ProtectedRoute>
-            <ChangePasswordPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/agent-chat"
-        element={
-          <ProtectedRoute>
-            <AgentChatPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="/" element={<Navigate to="/agent-chat" replace />} />
-      <Route path="*" element={<Navigate to="/agent-chat" replace />} />
-    </Routes>
-  </Router>
-);
+const App: React.FC = () => {
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `.semi-table-pagination-info{display:none !important;}`;
+    document.head.appendChild(style);
+    return () => {
+      style.remove();
+    };
+  }, []);
+
+  return (
+    <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+      <Routes>
+        <Route path="/login" element={<LoginRedirect />} />
+        <Route
+          path="/agent-config"
+          element={
+            <ProtectedRoute>
+              <AgentConfigPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/agent-list"
+          element={
+            <ProtectedRoute>
+              <AgentListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/client-management"
+          element={
+            <ProtectedRoute>
+              <ClientManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-client-api-management"
+          element={
+            <ProtectedRoute>
+              <ApiManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/advisor-management"
+          element={
+            <ProtectedRoute>
+              <AdvisorManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rag-order-management"
+          element={
+            <ProtectedRoute>
+              <RagManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/client-model-management"
+          element={
+            <ProtectedRoute>
+              <ModelManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/client-system-prompt-management"
+          element={
+            <ProtectedRoute>
+              <PromptManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/client-tool-mcp-management"
+          element={
+            <ProtectedRoute>
+              <McpManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user-info"
+          element={
+            <ProtectedRoute>
+              <UserInfoPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/agent-chat"
+          element={
+            <ProtectedRoute>
+              <AgentChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/" element={<Navigate to="/agent-chat" replace />} />
+        <Route path="*" element={<Navigate to="/agent-chat" replace />} />
+      </Routes>
+    </Router>
+  );
+};
 
 const app = createRoot(document.getElementById('root')!);
 

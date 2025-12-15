@@ -1,4 +1,9 @@
-import { API_CONFIG, getDefaultHeaders, parseResponseJsonSafely, stringifySafely } from '../config/api';
+import {
+  API_CONFIG,
+  getDefaultHeaders,
+  parseResponseJsonSafely,
+  stringifySafely,
+} from '../config/api';
 
 // 请求和响应接口定义
 export interface AiClientApiQueryRequestDTO {
@@ -146,10 +151,6 @@ export class AiClientApiAdminService {
 
     return await parseResponseJsonSafely(response);
   }
-
-
 }
-
-
 
 export const aiClientApiAdminService = new AiClientApiAdminService();

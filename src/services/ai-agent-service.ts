@@ -1,7 +1,12 @@
 /**
  * AI Agent 服务
  */
-import {API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely} from '../config';
+import {
+  API_ENDPOINTS,
+  getDefaultHeaders,
+  parseResponseJsonSafely,
+  stringifySafely,
+} from '../config';
 
 export interface ArmoryAgentRequestDTO {
   agentId: string;
@@ -10,7 +15,6 @@ export interface ArmoryAgentRequestDTO {
 export interface ArmoryApiRequestDTO {
   apiId: string;
 }
-
 
 export interface ApiResponse<T> {
   code: string;
@@ -49,30 +53,35 @@ export class AiAgentService {
   /**
    * 对话
    */
-  static async chat(agentId: string, message: string, sessionId: string, selectedMaxStep: number, input: string): Promise<Response> {
-      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_AGENT.AUTO_AGENT}`, {
-        method: 'POST',
-        headers: getDefaultHeaders(),
-        body: stringifySafely({
-          sessionId,
-          userId: JSON.parse(localStorage.getItem('userInfo') || '{}')?.id || '',
-          agentId,
-          message,
-          maxStep: selectedMaxStep,
-          query: input
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('网络请求失败: ' + response.status);
-      }
+  static async chat(
+    agentId: string,
+    message: string,
+    sessionId: string,
+    selectedMaxStep: number,
+    input: string
+  ): Promise<Response> {
+    const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_AGENT.AUTO_AGENT}`, {
+      method: 'POST',
+      headers: getDefaultHeaders(),
+      body: stringifySafely({
+        sessionId,
+        userId: JSON.parse(localStorage.getItem('userInfo') || '{}')?.id || '',
+        agentId,
+        message,
+        maxStep: selectedMaxStep,
+        query: input,
+      }),
+    });
 
-       // 处理流式响应
-      if (!response.body) {
-        throw new Error('响应流为空');
-      }
-
-      return response;
+    if (!response.ok) {
+      throw new Error('网络请求失败: ' + response.status);
     }
 
+    // 处理流式响应
+    if (!response.body) {
+      throw new Error('响应流为空');
+    }
+
+    return response;
+  }
 }

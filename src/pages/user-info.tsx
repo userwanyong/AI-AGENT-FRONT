@@ -1,11 +1,23 @@
-import React, { useEffect, useState, useRef } from 'react';
-import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
-import { Button, Form, Toast, Typography, Select, Avatar, TextArea, Input, Radio } from '@douyinfe/semi-ui';
+import React, { useEffect, useState, useRef } from 'react';
+
+import styled from 'styled-components';
+import {
+  Button,
+  Form,
+  Toast,
+  Typography,
+  Select,
+  Avatar,
+  TextArea,
+  Input,
+  Radio,
+} from '@douyinfe/semi-ui';
 import { IconUpload, IconUser, IconMail, IconPhone } from '@douyinfe/semi-icons';
+
 import { theme } from '../styles/theme';
-import { Card } from '../components/common';
 import { UserService, UserInfoResponseDTO, UserInfoRequestDTO } from '../services/user-service';
+import { Card } from '../components/common';
 
 const { Title } = Typography;
 
@@ -53,19 +65,41 @@ const RightCol = styled.div`
 `;
 
 const StyledForm = styled(Form)`
-  .semi-form-field { margin-bottom: 8px; }
-  .semi-input-wrapper { background-color: #ffffff !important; border: 1px solid var(--semi-color-border) !important; border-radius: 6px !important; }
-  .semi-input-wrapper:focus-within { border-color: var(--semi-color-primary) !important; }
+  .semi-form-field {
+    margin-bottom: 8px;
+  }
+  .semi-input-wrapper {
+    background-color: #ffffff !important;
+    border: 1px solid var(--semi-color-border) !important;
+    border-radius: 6px !important;
+  }
+  .semi-input-wrapper:focus-within {
+    border-color: var(--semi-color-primary) !important;
+  }
   .white-select,
   .white-select .semi-select-selection,
   .white-select .semi-select-selection__rendered,
   .white-select .semi-select-selection__icon {
     background-color: #ffffff !important;
   }
-  .white-select .semi-select-selection { border: 1px solid var(--semi-color-border) !important; border-radius: 6px !important; }
-  .white-select.semi-select-focus .semi-select-selection { border-color: var(--semi-color-primary) !important; }
-  .semi-input-textarea, textarea.semi-input-textarea { background-color: #ffffff !important; border: 1px solid var(--semi-color-border) !important; border-radius: 6px !important; resize: vertical !important; }
-  .semi-input-textarea:focus-within, textarea.semi-input-textarea:focus { border-color: var(--semi-color-primary) !important; }
+  .white-select .semi-select-selection {
+    border: 1px solid var(--semi-color-border) !important;
+    border-radius: 6px !important;
+  }
+  .white-select.semi-select-focus .semi-select-selection {
+    border-color: var(--semi-color-primary) !important;
+  }
+  .semi-input-textarea,
+  textarea.semi-input-textarea {
+    background-color: #ffffff !important;
+    border: 1px solid var(--semi-color-border) !important;
+    border-radius: 6px !important;
+    resize: vertical !important;
+  }
+  .semi-input-textarea:focus-within,
+  textarea.semi-input-textarea:focus {
+    border-color: var(--semi-color-primary) !important;
+  }
 `;
 
 const ActionsRow = styled.div`
@@ -93,7 +127,8 @@ const HiddenFileInput = styled.input`
 `;
 
 const UserInfoPage: React.FC = () => {
-  const DEFAULT_AVATAR = 'https://wanyj-lxzs.oss-cn-beijing.aliyuncs.com/e9ce9097-bd0c-4ee1-bf90-bcf394cc0e8b.jpg';
+  const DEFAULT_AVATAR =
+    'https://wanyj-lxzs.oss-cn-beijing.aliyuncs.com/e9ce9097-bd0c-4ee1-bf90-bcf394cc0e8b.jpg';
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -113,7 +148,10 @@ const UserInfoPage: React.FC = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
 
   const fetchUser = async () => {
-    if (!userId) { Toast.error('未获取到用户ID'); return; }
+    if (!userId) {
+      Toast.error('未获取到用户ID');
+      return;
+    }
     setLoading(true);
     try {
       const resp = await UserService.getUserInfo(userId);
@@ -142,7 +180,9 @@ const UserInfoPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchUser(); }, [userId, formApi]);
+  useEffect(() => {
+    fetchUser();
+  }, [userId, formApi]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -151,7 +191,10 @@ const UserInfoPage: React.FC = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { Toast.error('头像大小不能超过5MB'); return; }
+    if (file.size > 5 * 1024 * 1024) {
+      Toast.error('头像大小不能超过5MB');
+      return;
+    }
     setUploading(true);
     try {
       const resp = await UserService.uploadAvatar(file);
@@ -160,7 +203,10 @@ const UserInfoPage: React.FC = () => {
         setAvatarUrl(url);
         setUserData((prev) => ({ ...(prev || {}), avatar: url }));
         Toast.success('头像上传成功');
-        if (uploadTimerRef.current) { clearInterval(uploadTimerRef.current); uploadTimerRef.current = null; }
+        if (uploadTimerRef.current) {
+          clearInterval(uploadTimerRef.current);
+          uploadTimerRef.current = null;
+        }
         setUploadCooldown(true);
         setUploadRemaining(15);
         uploadTimerRef.current = setInterval(() => {
@@ -187,7 +233,10 @@ const UserInfoPage: React.FC = () => {
 
   const handleSubmit = async (values: Record<string, any>) => {
     try {
-      if (!userId) { Toast.error('未获取到用户ID'); return; }
+      if (!userId) {
+        Toast.error('未获取到用户ID');
+        return;
+      }
       const payload: UserInfoRequestDTO = {
         id: values.id,
         userId: values.userId || userId,
@@ -210,7 +259,10 @@ const UserInfoPage: React.FC = () => {
           local.avatar = payload.avatar || DEFAULT_AVATAR;
           localStorage.setItem('userInfo', JSON.stringify(local));
         } catch {}
-        if (saveTimerRef.current) { clearInterval(saveTimerRef.current); saveTimerRef.current = null; }
+        if (saveTimerRef.current) {
+          clearInterval(saveTimerRef.current);
+          saveTimerRef.current = null;
+        }
         setSaveCooldown(true);
         setSaveRemaining(15);
         saveTimerRef.current = setInterval(() => {
@@ -237,22 +289,27 @@ const UserInfoPage: React.FC = () => {
   return (
     <Container>
       <InfoCard>
-        <Title heading={5} style={{ margin: 0 }}>个人中心</Title>
+        <Title heading={5} style={{ margin: 0 }}>
+          个人中心
+        </Title>
         <Row>
           <LeftCol>
             <StyledForm getFormApi={setFormApi} onSubmit={handleSubmit}>
-              <Form.Input field="nickname" label="昵称" prefix={<IconUser />} placeholder="请输入昵称" />
+              <Form.Input
+                field="nickname"
+                label="昵称"
+                prefix={<IconUser />}
+                placeholder="请输入昵称"
+              />
               <Form.RadioGroup field="sex" label="性别">
                 <Radio value={0}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#1890ff', fontSize: 15 }}>♂</span>
-                    男
+                    <span style={{ color: '#1890ff', fontSize: 15 }}>♂</span>男
                   </span>
                 </Radio>
                 <Radio value={1}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#ff4d8f', fontSize: 15 }}>♀</span>
-                    女
+                    <span style={{ color: '#ff4d8f', fontSize: 15 }}>♀</span>女
                   </span>
                 </Radio>
               </Form.RadioGroup>
@@ -261,30 +318,54 @@ const UserInfoPage: React.FC = () => {
                 label="电话"
                 prefix={<IconPhone />}
                 placeholder="请输入电话"
-                rules={[{
-                  validator: (_rule: any, value: any, callback: (error?: string | void) => void) => {
-                    const v = (value || '').trim();
-                    if (!v) { callback(); return true; }
-                    if (/^1[3-9]\d{9}$/.test(v)) { callback(); return true; }
-                    callback('手机号格式不正确');
-                    return false;
-                  }
-                }]}
+                rules={[
+                  {
+                    validator: (
+                      _rule: any,
+                      value: any,
+                      callback: (error?: string | void) => void
+                    ) => {
+                      const v = (value || '').trim();
+                      if (!v) {
+                        callback();
+                        return true;
+                      }
+                      if (/^1[3-9]\d{9}$/.test(v)) {
+                        callback();
+                        return true;
+                      }
+                      callback('手机号格式不正确');
+                      return false;
+                    },
+                  },
+                ]}
               />
               <Form.Input
                 field="email"
                 label="邮箱"
                 prefix={<IconMail />}
                 placeholder="请输入邮箱"
-                rules={[{
-                  validator: (_rule: any, value: any, callback: (error?: string | void) => void) => {
-                    const v = (value || '').trim();
-                    if (!v) { callback(); return true; }
-                    if (/^[^\s@]+@[^\s@]+\.com$/i.test(v)) { callback(); return true; }
-                    callback('邮箱格式错误');
-                    return false;
-                  }
-                }]}
+                rules={[
+                  {
+                    validator: (
+                      _rule: any,
+                      value: any,
+                      callback: (error?: string | void) => void
+                    ) => {
+                      const v = (value || '').trim();
+                      if (!v) {
+                        callback();
+                        return true;
+                      }
+                      if (/^[^\s@]+@[^\s@]+\.com$/i.test(v)) {
+                        callback();
+                        return true;
+                      }
+                      callback('邮箱格式错误');
+                      return false;
+                    },
+                  },
+                ]}
               />
               <Form.RadioGroup field="language" label="偏好语言">
                 <Radio value={0}>中文</Radio>
@@ -295,14 +376,36 @@ const UserInfoPage: React.FC = () => {
           </LeftCol>
           <RightCol>
             <AvatarPreview src={(avatarUrl as any) || DEFAULT_AVATAR} alt="avatar" />
-            <HiddenFileInput ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} />
-            <Button icon={<IconUpload />} onClick={handleUploadClick} loading={uploading || uploadCooldown} disabled={uploadCooldown}>上传头像{uploadCooldown ? `(${uploadRemaining}s)` : ''}</Button>
+            <HiddenFileInput
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+            <Button
+              icon={<IconUpload />}
+              onClick={handleUploadClick}
+              loading={uploading || uploadCooldown}
+              disabled={uploadCooldown}
+            >
+              上传头像{uploadCooldown ? `(${uploadRemaining}s)` : ''}
+            </Button>
             <UploadTip>支持 jpg/png/webp，大小≤5MB</UploadTip>
           </RightCol>
         </Row>
         <ActionsRow>
-          <Button theme="borderless" onClick={() => navigate(-1)} style={{ justifySelf: 'start' }}>返回</Button>
-          <Button type="primary" loading={loading || saveCooldown} disabled={saveCooldown} onClick={() => formApi?.submitForm?.()} style={{ justifySelf: 'center' }}>保存信息{saveCooldown ? `(${saveRemaining}s)` : ''}</Button>
+          <Button theme="borderless" onClick={() => navigate(-1)} style={{ justifySelf: 'start' }}>
+            返回
+          </Button>
+          <Button
+            type="primary"
+            loading={loading || saveCooldown}
+            disabled={saveCooldown}
+            onClick={() => formApi?.submitForm?.()}
+            style={{ justifySelf: 'center' }}
+          >
+            保存信息{saveCooldown ? `(${saveRemaining}s)` : ''}
+          </Button>
           <span style={{ justifySelf: 'end' }} />
         </ActionsRow>
       </InfoCard>

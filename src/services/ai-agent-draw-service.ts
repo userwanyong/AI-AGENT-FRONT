@@ -1,7 +1,12 @@
 /**
  * AI Agent Draw 配置服务
  */
-import { API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
+import {
+  API_ENDPOINTS,
+  getDefaultHeaders,
+  parseResponseJsonSafely,
+  stringifySafely,
+} from '../config';
 
 export interface AiAgentDrawConfigResponseDTO {
   id?: string;
@@ -72,7 +77,9 @@ export class AiAgentDrawService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiAgentDrawConfigResponseDTO> = await parseResponseJsonSafely(response);
+      const result: ApiResponse<AiAgentDrawConfigResponseDTO> = await parseResponseJsonSafely(
+        response
+      );
 
       if (result.code === '0000') {
         return result.data || null;

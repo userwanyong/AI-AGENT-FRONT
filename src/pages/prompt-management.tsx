@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useMemo } from 'react';
 
 import styled from 'styled-components';
+import { marked } from 'marked';
+import hljs from 'highlight.js';
 import {
   Layout,
   Table,
@@ -16,6 +18,8 @@ import {
   Modal,
   Select,
   TextArea,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
 import {
   IconSearch,
@@ -24,6 +28,7 @@ import {
   IconDelete,
   IconRefresh,
   IconEyeOpened,
+  IconMore,
 } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
@@ -34,8 +39,6 @@ import {
   AiClientSystemPromptRequestDTO,
 } from '../services/ai-client-system-prompt-admin-service';
 import { Sidebar, Header } from '../components/layout';
-import { marked } from 'marked';
-import hljs from 'highlight.js';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -49,7 +52,7 @@ const SystemPromptManagementLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -154,7 +157,7 @@ const MarkdownEditorLayout = styled.div`
   .leftPane .semi-input-textarea-wrapper {
     flex: 1;
     display: flex;
-    height: 100% ;
+    height: 100%;
     background: ${theme.colors.bg.primary} !important;
     border: 1px solid #e5e5e5;
     border-radius: 6px;
@@ -230,9 +233,15 @@ const DescriptionTextareaStyles = styled.div`
 
 export const PromptManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiClientSystemPromptResponseDTO[]>([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
@@ -374,41 +383,56 @@ export const PromptManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
-      fixed: 'right' as const,
-      render: (_: any, record: AiClientSystemPromptResponseDTO) => (
-        <Space>
-          <ActionButton
-            theme="borderless"
-            type="tertiary"
-            icon={<IconEyeOpened />}
-            size="small"
-            onClick={() => handleView(record)}
+      width: isMobile ? 80 : 200,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: AiClientSystemPromptResponseDTO) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => handleView(record)}>查看</Dropdown.Item>
+                <Dropdown.Item onClick={() => handleEdit(record)}>编辑</Dropdown.Item>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            查看
-          </ActionButton>
-          <ActionButton
-            theme="borderless"
-            type="primary"
-            icon={<IconEdit />}
-            size="small"
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </ActionButton>
-          <Popconfirm
-            title="确定要删除这个系统提示词配置吗？"
-            content="删除后无法恢复，请谨慎操作"
-            onConfirm={() => handleDelete(record)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
-              删除
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <ActionButton
+              theme="borderless"
+              type="tertiary"
+              icon={<IconEyeOpened />}
+              size="small"
+              onClick={() => handleView(record)}
+            >
+              查看
             </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <ActionButton
+              theme="borderless"
+              type="primary"
+              icon={<IconEdit />}
+              size="small"
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </ActionButton>
+            <Popconfirm
+              title="确定要删除这个系统提示词配置吗？"
+              content="删除后无法恢复，请谨慎操作"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -590,6 +614,7 @@ export const PromptManagement: React.FC = () => {
         collapsed={collapsed}
         selectedKey="client-system-prompt-management"
         onSelect={handleNavigation}
+        onToggle={() => setCollapsed(!collapsed)}
       />
       <MainContent $collapsed={collapsed}>
         <ContentArea>
@@ -646,8 +671,6 @@ export const PromptManagement: React.FC = () => {
                       currentPage: currentPage,
                       pageSize: pageSize,
                       total: total,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
                       onChange: handlePageChange,
                     }}
                     rowKey="id"
