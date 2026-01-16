@@ -11,7 +11,16 @@ const isProduction = process.env.NODE_ENV === 'production';
 // 基础配置
 export const API_CONFIG = {
   // 基础域名配置
-  BASE_DOMAIN: isDevelopment ? 'http://120.48.70.239:8071' : 'http://120.48.70.239:8071',
+  BASE_DOMAIN: (() => {
+    if (isDevelopment) {
+      return 'http://127.0.0.1:8071';
+    }
+    // 生产环境强制使用当前域名，走 EdgeOne 的同域代理
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    return '';
+  })(),
   
   // API 版本
   API_VERSION: 'v1',
