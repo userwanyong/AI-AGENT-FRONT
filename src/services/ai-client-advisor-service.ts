@@ -44,7 +44,9 @@ export class AiClientAdvisorService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse<AiClientAdvisorResponseDTO[]> = await parseResponseJsonSafely(response);
+      const result: ApiResponse<AiClientAdvisorResponseDTO[]> = await parseResponseJsonSafely(
+        response
+      );
 
       if (result.code === '0000') {
         return result.data || [];

@@ -153,6 +153,11 @@
   border-right: 1px solid #e8e8e8;
 }
 
+@media (max-width: 480px) {
+  .agent-sidebar { border-right: none; }
+  .main-content { background: linear-gradient(180deg, #eef6ff 0%, #f4f9ff 100%); }
+}
+
 .agent-sidebar.visible {
   width: 260px;
 }
@@ -162,17 +167,7 @@
 }
 
 /* 底部遮罩与分隔线：在头像所在高度上方添加浅色线，并遮住超出部分 */
-.agent-sidebar::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 52px; /* 约等于头像高度+底部留白 */
-  background: linear-gradient(180deg, #f4f9ff 0%, #eef6ff 100%);
-  border-top: 1px solid #eef2f7; /* 更浅的分隔线 */
-  pointer-events: none; /* 不影响交互 */
-}
+.agent-sidebar::after { content: none; display: none; }
 
 .sidebar-title {
   padding: 10px;
@@ -188,6 +183,18 @@
 .sidebar-title-text {
   font-weight: bold;
   font-size: 18px;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
 }
 
 .toggle-button {
@@ -313,6 +320,8 @@
   align-items: center;
   color: #333;
   position: relative;
+  box-sizing: border-box;
+  height: 40px;
 }
 
 .chat-history-item:hover {
@@ -343,6 +352,16 @@
   background-color: #f6fbff;
   border-left: 3px solid #bfe3ff;
 }
+
+/* 历史项删除图标：默认隐藏，悬停时显示 */
+.history-delete-icon {
+  display: none;
+  color: #d93025;
+  padding: 6px;
+  border-radius: 6px;
+}
+.chat-history-item:hover .history-delete-icon { display: inline-flex; }
+.history-delete-icon:hover { background: #f5f6f8; color: #b61e14; }
 
 .chat-history-empty {
   padding: 10px;
@@ -585,6 +604,7 @@
   word-break: break-word;
   overflow-wrap: anywhere;
   overflow: hidden;
+  white-space: pre-wrap;
 }
 
 .ai-message {
@@ -601,7 +621,7 @@
   transition: all 0.3s ease;
   word-break: break-word;
   overflow-wrap: anywhere;
-  overflow: hidden;
+  overflow: visible;
   max-width: calc(100% - 30px);
 }
 
@@ -676,7 +696,7 @@
 }
 
 .bottom-input-area {
-  border-top: 1px solid #e8e8e8;
+  border-top: none;
   padding: 15px 20px;
   background: linear-gradient(180deg, #eef6ff 0%, #f4f9ff 100%);
 }
@@ -705,6 +725,44 @@
   color: #515050;
   margin-bottom: 12px;
   animation: introFloatIn 600ms ease-out both;
+}
+
+.intro-title { line-height: 1.1; }
+.intro-subtitle {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  background: linear-gradient(90deg, #4f7cfb 0%, #9ad1ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 6px rgba(64, 123, 255, 0.18);
+}
+.intro-efficient { position: relative; display: inline-block; }
+.intro-badge {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  transform: translate(10px, -8px);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(90deg, #4f7cfb 0%, #9ad1ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 6px rgba(64, 123, 255, 0.18);
+}
+.intro-num {
+  background: linear-gradient(90deg, #ff6b6b 0%, #ff4d4f 50%, #d6272d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 6px rgba(255, 77, 79, 0.30);
+  font-weight: 700;
 }
 
 @keyframes introFloatIn {
@@ -917,6 +975,22 @@
   background: transparent;
   border: 0;
 }
+
+/* 代码块复制按钮 */
+.code-block { position: relative; }
+.copy-code-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #cfe6ff;
+  background: #fff;
+  color: #1e293b;
+  cursor: pointer;
+}
+.copy-code-btn:hover { background: #eef6ff; }
 
 .markdown-content ul,
 .markdown-content ol {
@@ -1263,4 +1337,22 @@
 .query-composer:has(.send-round.disabled) {
   border-color: #cfe6ff;
   background: linear-gradient(180deg, #eef6ff 0%, #f4f9ff 100%);
+}
+.drawio-viewer-container { width: 100%; max-width: 100%; }
+.drawio-toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 480px) {
+  .drawio-viewer-container { min-height: 180px; }
+  .drawio-toolbar .semi-button { padding: 4px 8px; }
+}
+.panel { box-sizing: border-box; }
+@media (max-width: 480px) {
+  .panel { padding: 12px; }
+  .message-content { max-width: 100%; }
+  .ai-message { margin-right: 8px; max-width: 100%; }
+}
+.drawio-viewer-container .mxgraph-toolbar,
+.drawio-viewer-container .geToolbarContainer,
+.drawio-viewer-container .geToolbar {
+  display: none !important;
 }

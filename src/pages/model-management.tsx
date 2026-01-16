@@ -15,8 +15,17 @@ import {
   Card,
   Modal,
   Select,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
-import { IconSearch, IconPlus, IconEdit, IconDelete, IconRefresh } from '@douyinfe/semi-icons';
+import {
+  IconSearch,
+  IconPlus,
+  IconEdit,
+  IconDelete,
+  IconRefresh,
+  IconMore,
+} from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
 import {
@@ -43,7 +52,7 @@ const ModelManagementLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -130,7 +139,13 @@ export const ModelManagement: React.FC = () => {
   const navigate = useNavigate();
 
   // 侧边栏状态
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // 表格数据状态
   const [modelList, setModelList] = useState<AiClientModelResponseDTO[]>([]);
@@ -224,32 +239,46 @@ export const ModelManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 140,
-      fixed: 'right' as const,
-      render: (_: any, record: AiClientModelResponseDTO) => (
-        <Space>
-          <ActionButton
-            theme="borderless"
-            type="primary"
-            icon={<IconEdit />}
-            size="small"
-            onClick={() => handleEdit(record)}
+      width: isMobile ? 80 : 140,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: AiClientModelResponseDTO) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => handleEdit(record)}>编辑</Dropdown.Item>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            编辑
-          </ActionButton>
-          <Popconfirm
-            title="确定要删除这个模型配置吗？"
-            content="删除后无法恢复，请谨慎操作"
-            onConfirm={() => handleDelete(record)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
-              删除
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <ActionButton
+              theme="borderless"
+              type="primary"
+              icon={<IconEdit />}
+              size="small"
+              onClick={() => handleEdit(record)}
+            >
+              编辑
             </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <Popconfirm
+              title="确定要删除这个模型配置吗？"
+              content="删除后无法恢复，请谨慎操作"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -407,7 +436,7 @@ export const ModelManagement: React.FC = () => {
   const handlePageChange = (page: number, size: number) => {
     setCurrentPage(page);
     setPageSize(size);
-    fetchModelListWithPage(page, size || pageSize)
+    fetchModelListWithPage(page, size || pageSize);
   };
 
   // 初始化数据
@@ -442,6 +471,7 @@ export const ModelManagement: React.FC = () => {
       <Sidebar
         collapsed={sidebarCollapsed}
         selectedKey="client-model-management"
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onSelect={(key) => {
           switch (key) {
             case 'dashboard':
@@ -539,8 +569,6 @@ export const ModelManagement: React.FC = () => {
                       currentPage: currentPage,
                       pageSize: pageSize,
                       total: total,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
                       onChange: handlePageChange,
                     }}
                     scroll={{ x: 1200 }}

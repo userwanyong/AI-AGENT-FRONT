@@ -1,4 +1,10 @@
-import { API_ENDPOINTS, getDefaultHeaders, getUploadHeaders, parseResponseJsonSafely, stringifySafely } from '../config';
+import {
+  API_ENDPOINTS,
+  getDefaultHeaders,
+  getUploadHeaders,
+  parseResponseJsonSafely,
+  stringifySafely,
+} from '../config';
 
 // 定义API响应格式
 export interface ApiResponse<T> {
@@ -8,13 +14,16 @@ export interface ApiResponse<T> {
 }
 
 export class UserService {
-  
   private static readonly BASE_URL = API_ENDPOINTS.USER.BASE;
 
   /**
    * 修改密码
    */
-  static async updatePassword(payload: { username: string; oldPassword: string; newPassword: string }): Promise<ApiResponse<void>> {
+  static async updatePassword(payload: {
+    username: string;
+    oldPassword: string;
+    newPassword: string;
+  }): Promise<ApiResponse<void>> {
     try {
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.UPDATE_PWD}`, {
         method: 'PUT',
@@ -33,7 +42,9 @@ export class UserService {
 
   static async resetPassword(username: string): Promise<ApiResponse<void>> {
     try {
-      const url = `${this.BASE_URL}${API_ENDPOINTS.USER.RESET_PWD}?username=${encodeURIComponent(username)}`;
+      const url = `${this.BASE_URL}${API_ENDPOINTS.USER.RESET_PWD}?username=${encodeURIComponent(
+        username
+      )}`;
       const response = await fetch(url, {
         method: 'PUT',
         headers: getDefaultHeaders(),
@@ -132,10 +143,13 @@ export class UserService {
    */
   static async getUserInfo(userId: string | number): Promise<ApiResponse<UserInfoResponseDTO>> {
     try {
-      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.INFO}/${encodeURIComponent(String(userId))}`, {
-        method: 'GET',
-        headers: getDefaultHeaders(),
-      });
+      const response = await fetch(
+        `${this.BASE_URL}${API_ENDPOINTS.USER.INFO}/${encodeURIComponent(String(userId))}`,
+        {
+          method: 'GET',
+          headers: getDefaultHeaders(),
+        }
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

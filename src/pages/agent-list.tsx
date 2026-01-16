@@ -13,6 +13,8 @@ import {
   Popconfirm,
   Card,
   Switch,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
 import {
   IconSearch,
@@ -21,6 +23,7 @@ import {
   IconEdit,
   IconDelete,
   IconDownload,
+  IconMore,
 } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
@@ -29,9 +32,9 @@ import {
   AiAgentDrawConfigResponseDTO,
   AiAgentDrawConfigQueryRequestDTO,
 } from '../services/ai-agent-draw-service';
+import { AdminUserService } from '../services/admin-user-service';
 import { AiAgentService } from '../services';
 import { Sidebar, Header } from '../components/layout';
-import { AdminUserService } from '../services/admin-user-service';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -45,7 +48,7 @@ const AgentListLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -122,7 +125,14 @@ export const AgentListPage: React.FC<AgentListPageProps> = ({
   onMenuSelect,
 }) => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // 处理侧边栏导航
   const handleNavigation = (path: string) => {
@@ -264,8 +274,8 @@ export const AgentListPage: React.FC<AgentListPageProps> = ({
                 Toast.success(`已${checked ? '启用' : '禁用'}`);
                 setDataSource((prev) =>
                   prev.map((item) =>
-                    item.id === record.id ? { ...item, status: newStatus } : item,
-                  ),
+                    item.id === record.id ? { ...item, status: newStatus } : item
+                  )
                 );
               } else {
                 Toast.error(res?.info || '更新失败');
@@ -297,45 +307,61 @@ export const AgentListPage: React.FC<AgentListPageProps> = ({
     {
       title: '操作',
       key: 'action',
-      width: 270,
-      fixed: 'right' as const,
-      render: (_: any, record: AiAgentDrawConfigResponseDTO) => (
-        <Space>
-          <ActionButton
-            type="tertiary"
-            size="small"
-            icon={<IconEyeOpened />}
-            onClick={() => handleView(record)}
+      width: isMobile ? 80 : 270,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: AiAgentDrawConfigResponseDTO) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => handleView(record)}>查看</Dropdown.Item>
+                <Dropdown.Item onClick={() => handleEdit(record)}>修改</Dropdown.Item>
+                <Dropdown.Item onClick={() => handleLoad(record)}>加载</Dropdown.Item>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            查看
-          </ActionButton>
-          <ActionButton
-            type="tertiary"
-            size="small"
-            icon={<IconEdit />}
-            onClick={() => handleEdit(record)}
-          >
-            修改
-          </ActionButton>
-          <ActionButton
-            icon={<IconDownload />}
-            type="primary"
-            size="small"
-            onClick={() => handleLoad(record)}
-          >
-            加载
-          </ActionButton>
-          <Popconfirm
-            title="确定要删除这个配置吗？"
-            content="删除后无法恢复，请谨慎操作"
-            onConfirm={() => handleDelete(record)}
-          >
-            <ActionButton type="danger" size="small" icon={<IconDelete />}>
-              删除
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <ActionButton
+              type="tertiary"
+              size="small"
+              icon={<IconEyeOpened />}
+              onClick={() => handleView(record)}
+            >
+              查看
             </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <ActionButton
+              type="tertiary"
+              size="small"
+              icon={<IconEdit />}
+              onClick={() => handleEdit(record)}
+            >
+              修改
+            </ActionButton>
+            <ActionButton
+              icon={<IconDownload />}
+              type="primary"
+              size="small"
+              onClick={() => handleLoad(record)}
+            >
+              加载
+            </ActionButton>
+            <Popconfirm
+              title="确定要删除这个配置吗？"
+              content="删除后无法恢复，请谨慎操作"
+              onConfirm={() => handleDelete(record)}
+            >
+              <ActionButton type="danger" size="small" icon={<IconDelete />}>
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -451,7 +477,12 @@ export const AgentListPage: React.FC<AgentListPageProps> = ({
 
   return (
     <AgentListLayout>
-      <Sidebar selectedKey={selectedKey} onSelect={handleNavigation} collapsed={collapsed} />
+      <Sidebar
+        selectedKey={selectedKey}
+        onSelect={handleNavigation}
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+      />
       <MainContent $collapsed={collapsed}>
         <ContentArea>
           <Header
@@ -504,8 +535,6 @@ export const AgentListPage: React.FC<AgentListPageProps> = ({
                       currentPage: searchParams.pageNum || 1,
                       pageSize: searchParams.pageSize || 10,
                       total: total,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
                       onChange: handlePageChange,
                     }}
                     rowKey="id"

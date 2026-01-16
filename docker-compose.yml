@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   ai-agent-front:
-    image: registry.cn-wulanchabu.aliyuncs.com/wanyj/ai-agent-front:1.0
+    image: registry.cn-wulanchabu.aliyuncs.com/wanyj/ai-agent-front:3.0
     container_name: ai-agent-front
     ports:
       - "3000:3000"

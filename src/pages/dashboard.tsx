@@ -2,15 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 
 import styled from 'styled-components';
-import {
-  Layout,
-  Button,
-  Typography,
-  Space,
-  Toast,
-  Row,
-  Col,
-} from '@douyinfe/semi-ui';
+import { Layout, Button, Typography, Space, Toast, Row, Col } from '@douyinfe/semi-ui';
 import { IconApps, IconActivity, IconUser, IconBranch } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
@@ -33,8 +25,7 @@ const DashboardLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) =>
-    props.$collapsed ? '80px' : '280px'}; /* 根据 Sidebar 状态调整左边距 */
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -201,7 +192,7 @@ interface UserInfo {
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [statisticsData, setStatisticsData] = useState<DataStatisticsResponseDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -407,7 +398,12 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Sidebar selectedKey="dashboard" onSelect={handleNavigation} collapsed={collapsed} />
+      <Sidebar
+        selectedKey="dashboard"
+        onSelect={handleNavigation}
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+      />
       <MainContent $collapsed={collapsed}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <Header

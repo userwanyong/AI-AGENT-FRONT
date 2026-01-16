@@ -2,7 +2,12 @@
  * 管理员用户API服务
  */
 
-import {API_ENDPOINTS, getDefaultHeaders, parseResponseJsonSafely, stringifySafely} from '../config';
+import {
+  API_ENDPOINTS,
+  getDefaultHeaders,
+  parseResponseJsonSafely,
+  stringifySafely,
+} from '../config';
 
 // 定义登录请求数据类型
 export interface AdminUserLoginRequestDTO {
@@ -83,23 +88,26 @@ export class AdminUserService {
   }
 
   /**
-     * 查询启用的智能体
-     */
-    static async queryEnableAgent(): Promise<ApiResponse<AgentResponseDTO[]>> {
-      try {
-        const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.ADMIN_USER.QUERY_AGENT_ENABLED}`, {
+   * 查询启用的智能体
+   */
+  static async queryEnableAgent(): Promise<ApiResponse<AgentResponseDTO[]>> {
+    try {
+      const response = await fetch(
+        `${this.BASE_URL}${API_ENDPOINTS.ADMIN_USER.QUERY_AGENT_ENABLED}`,
+        {
           method: 'GET',
           headers: getDefaultHeaders(),
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return parseResponseJsonSafely(response);
-      } catch (error) {
-        console.error('查询启用的智能体失败:', error);
-        throw error;
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      return parseResponseJsonSafely(response);
+    } catch (error) {
+      console.error('查询启用的智能体失败:', error);
+      throw error;
     }
+  }
 
   /**
    * 更新智能体状态/信息

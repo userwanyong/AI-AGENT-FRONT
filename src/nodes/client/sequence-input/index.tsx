@@ -4,7 +4,6 @@ import { InputNumber } from '@douyinfe/semi-ui';
 // import { useIsSidebar } from '../../../hooks';
 import { FormItem, Feedback } from '../../../form-components';
 
-
 export function SequenceInput() {
   // const readonly = !useIsSidebar();
 

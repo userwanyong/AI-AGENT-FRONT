@@ -17,8 +17,17 @@ import {
   Modal,
   Form,
   Upload,
+  Dropdown,
+  IconButton,
 } from '@douyinfe/semi-ui';
-import { IconSearch, IconDelete, IconRefresh, IconUpload, IconPlus } from '@douyinfe/semi-icons';
+import {
+  IconSearch,
+  IconDelete,
+  IconRefresh,
+  IconUpload,
+  IconPlus,
+  IconMore,
+} from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
 import {
@@ -41,7 +50,7 @@ const RagOrderManagementLayout = styled(Layout)`
 const MainContent = styled.div<{ $collapsed: boolean }>`
   display: flex;
   flex: 1;
-  margin-left: ${(props) => (props.$collapsed ? '80px' : '280px')};
+  margin-left: ${(props) => (props.$collapsed ? '80px' : '245px')};
   transition: margin-left ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
 `;
 
@@ -109,7 +118,13 @@ const ActionButton = styled(Button)`
 
 export const RagManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiClientRagOrderResponseDTO[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -221,23 +236,36 @@ export const RagManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 120,
-      fixed: 'right' as const,
-      render: (_: any, record: AiClientRagOrderResponseDTO) => (
-        <Space>
-          <Popconfirm
-            title="确定要删除这个知识库配置吗？"
-            content="删除后无法恢复，请谨慎操作"
-            onConfirm={() => handleDelete(record)}
-            okText="确定"
-            cancelText="取消"
+      width: isMobile ? 80 : 120,
+      fixed: isMobile ? undefined : ('right' as const),
+      render: (_: any, record: AiClientRagOrderResponseDTO) =>
+        isMobile ? (
+          <Dropdown
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item type="danger" onClick={() => handleDelete(record)}>
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
           >
-            <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
-              删除
-            </ActionButton>
-          </Popconfirm>
-        </Space>
-      ),
+            <IconButton size="small" type="tertiary" icon={<IconMore />} />
+          </Dropdown>
+        ) : (
+          <Space>
+            <Popconfirm
+              title="确定要删除这个知识库配置吗？"
+              content="删除后无法恢复，请谨慎操作"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <ActionButton theme="borderless" type="danger" icon={<IconDelete />} size="small">
+                删除
+              </ActionButton>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -461,6 +489,7 @@ export const RagManagement: React.FC = () => {
         collapsed={collapsed}
         selectedKey="rag-order-management"
         onSelect={handleNavigation}
+        onToggle={() => setCollapsed(!collapsed)}
       />
       <MainContent $collapsed={collapsed}>
         <ContentArea>
@@ -537,8 +566,6 @@ export const RagManagement: React.FC = () => {
                       currentPage: currentPage,
                       pageSize: pageSize,
                       total: total,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
                       onChange: handlePageChange,
                     }}
                     rowKey="id"
