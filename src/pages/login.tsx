@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Button, Form, Toast, Typography } from '@douyinfe/semi-ui';
-import { IconMail } from '@douyinfe/semi-icons';
+import { Button, Form, Toast, Typography, Modal } from '@douyinfe/semi-ui';
+import { IconMail, IconLock } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
 import { UserService } from '../services';
@@ -238,6 +238,37 @@ const CodeFieldWrapper = styled.div<{ $hasError: boolean }>`
   }
 `;
 
+const PasswordFieldWrapper = styled.div<{ $hasError: boolean }>`
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
+const ConfirmPasswordFieldWrapper = styled.div<{ $hasError: boolean }>`
+  margin-top: 4px;
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
 const LoginButton = styled(Button)`
   width: 100%;
   height: 38px;
@@ -248,6 +279,79 @@ const LoginButton = styled(Button)`
   font-weight: ${theme.typography.fontWeight.medium};
   @media (max-width: ${theme.breakpoints.sm}) {
     height: 40px;
+  }
+`;
+
+const GuestLoginWrapper = styled.div`
+  margin-top: ${theme.spacing.base};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const GuestLoginButton = styled.button`
+  background: transparent !important;
+  border: none !important;
+  color: #75ad80 !important;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover:not(:disabled) {
+    color: #5a9a66 !important;
+    text-decoration: underline;
+  }
+
+  &:active:not(:disabled) {
+    color: #4a8656 !important;
+  }
+
+  &:disabled {
+    color: #d9d9d9 !important;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: ${theme.breakpoints.sm}) {
+    font-size: 12px;
+  }
+`;
+
+const SwitchLoginButton = styled.button`
+  background: transparent !important;
+  border: none !important;
+  color: #75ad80 !important;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover:not(:disabled) {
+    color: #5a9a66 !important;
+    text-decoration: underline;
+  }
+
+  &:active:not(:disabled) {
+    color: #4a8656 !important;
+  }
+
+  &:disabled {
+    color: #d9d9d9 !important;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: ${theme.breakpoints.sm}) {
+    font-size: 12px;
   }
 `;
 
@@ -313,6 +417,12 @@ const LoginPage: React.FC = () => {
   const [countdown, setCountdown] = useState(0);
   const [emailError, setEmailError] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [guestLogging, setGuestLogging] = useState(false);
+  const [loginMode, setLoginMode] = useState<'code' | 'password'>('code'); // 登录方式: 验证码或密码
+  const [showInitPassword, setShowInitPassword] = useState(false); // 是否显示密码创建界面
+  const [initPasswordEmail, setInitPasswordEmail] = useState(''); // 首次登录的邮箱
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
   useEffect(() => {
     if (countdown > 0) {
@@ -349,7 +459,7 @@ const LoginPage: React.FC = () => {
       const result = await UserService.sendEmailCode(email);
       if (result.success) {
         Toast.success('验证码已发送，请注意查收');
-        setCountdown(60);
+        setCountdown(70);
       } else {
         Toast.error(result.message || '发送验证码失败，请稍后重试');
       }
@@ -365,35 +475,206 @@ const LoginPage: React.FC = () => {
     // 清除之前的错误
     setEmailError('');
     setCodeError('');
+    setPasswordError('');
 
     // 验证邮箱
     const email = values.email || '';
     if (!email) {
       setEmailError('请输入邮箱地址');
+      return;
     } else if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       setEmailError('请输入正确的邮箱格式');
+      return;
     }
 
-    // 验证验证码
-    if (!values.code) {
-      setCodeError('请输入验证码');
-    }
+    // 根据登录方式进行验证和登录
+    if (loginMode === 'code') {
+      // 验证码登录
+      if (!values.code) {
+        setCodeError('请输入验证码');
+        return;
+      }
 
-    // 如果有错误,不继续执行
-    if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/) || !values.code) {
+      setLoading(true);
+      try {
+        const result = await UserService.loginByEmail(values.email, values.code);
+
+        if (result.success && result.data) {
+          const raw = result.data;
+
+          const normalized = {
+            id: raw.id,
+            username: raw.username,
+            email: values.email,
+            role: raw.role,
+            avatar: raw.avatar,
+            status: raw.status,
+            createTime: raw.createTime,
+            updateTime: raw.updateTime,
+          };
+
+          // 保存 token，直接登录成功
+          localStorage.setItem('token', raw.token);
+          localStorage.setItem('userInfo', JSON.stringify(normalized));
+          localStorage.setItem('isLoggedIn', 'true');
+
+          // 检查是否是首次登录
+          if (raw.first === true) {
+            // 首次登录，提示用户设置密码但允许跳过
+            setTimeout(() => {
+              Modal.confirm({
+                title: '首次登录提示',
+                content: '检测到您是首次登录，建议设置登录密码以便下次使用密码登录。您也可以稍后在设置中修改密码。',
+                okText: '立即设置',
+                cancelText: '稍后设置',
+                onOk: () => {
+                  // 显示密码初始化界面
+                  setInitPasswordEmail(values.email);
+                  setShowInitPassword(true);
+                  setLoading(false);
+                },
+                onCancel: () => {
+                  // 直接进入聊天页面
+                  Toast.success('登录成功！');
+                  navigate('/agent-chat');
+                },
+              });
+            }, 500);
+          } else {
+            Toast.success('登录成功！');
+            navigate('/agent-chat');
+          }
+        } else {
+          Toast.error(result.message || '验证码错误或已过期，请重试');
+        }
+      } catch (error) {
+        console.error('登录失败:', error);
+        Toast.error('登录失败，请检查网络连接或稍后重试');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // 密码登录
+      if (!values.password) {
+        setPasswordError('请输入密码');
+        return;
+      }
+      if (values.password.length < 6) {
+        setPasswordError('密码至少为6位');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const result = await UserService.loginByEmailPassword(values.email, values.password);
+
+        if (result.success && result.data) {
+          const raw = result.data;
+          const normalized = {
+            id: raw.id,
+            username: raw.username,
+            email: values.email,
+            role: raw.role,
+            avatar: raw.avatar,
+            status: raw.status,
+            createTime: raw.createTime,
+            updateTime: raw.updateTime,
+          };
+
+          // 保存 token
+          localStorage.setItem('token', raw.token);
+          localStorage.setItem('userInfo', JSON.stringify(normalized));
+          localStorage.setItem('isLoggedIn', 'true');
+          Toast.success('登录成功！');
+          navigate('/agent-chat');
+        } else {
+          Toast.error(result.message || '邮箱或密码错误，请重试');
+        }
+      } catch (error) {
+        console.error('登录失败:', error);
+        Toast.error('登录失败，请检查网络连接或稍后重试');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleInitPassword = async (values: Record<string, any>) => {
+    // 清除之前的错误
+    setPasswordError('');
+    setConfirmPasswordError('');
+
+    // 验证密码
+    const password = values.password || '';
+    const confirmPassword = values.confirmPassword || '';
+
+    if (!password) {
+      setPasswordError('请输入密码');
+      return;
+    }
+    if (password.length < 6) {
+      setPasswordError('密码至少为6位');
+      return;
+    }
+    if (!confirmPassword) {
+      setConfirmPasswordError('请输入确认密码');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setConfirmPasswordError('两次输入的密码不一致');
       return;
     }
 
     setLoading(true);
     try {
-      const result = await UserService.loginByEmail(values.email, values.code);
+      const result = await UserService.initEmailPassword(initPasswordEmail, password, confirmPassword);
+
+      if (result.success) {
+        Toast.success('密码设置成功！登录成功！');
+        navigate('/agent-chat');
+      } else {
+        Toast.error(result.message || '密码设置失败，请重试');
+      }
+    } catch (error) {
+      console.error('密码设置失败:', error);
+      Toast.error('密码设置失败，请检查网络连接或稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipPasswordInit = () => {
+    // 跳过密码设置，弹出确认提示框
+    Modal.confirm({
+      title: '使用默认密码',
+      content: '默认密码为 123456，请尽快修改密码以确保账户安全！',
+      okText: '确认',
+      cancelText: '继续设置密码',
+      onOk: () => {
+        // 确认使用默认密码，进入聊天页面
+        Toast.success('登录成功！');
+        navigate('/agent-chat');
+      },
+      onCancel: () => {
+        // 继续留在密码创建界面
+      },
+    });
+  };
+
+  const handleGuestLogin = async () => {
+    setGuestLogging(true);
+    try {
+      const result = await UserService.validateAdminUserLogin({
+        username: 'tourist',
+        password: '123456'
+      });
 
       if (result.success && result.data) {
         const raw = result.data;
         const normalized = {
           id: raw.id,
           username: raw.username,
-          email: values.email,
+          email: raw.email || '',
           role: raw.role,
           avatar: raw.avatar,
           status: raw.status,
@@ -405,16 +686,16 @@ const LoginPage: React.FC = () => {
         localStorage.setItem('token', raw.token);
         localStorage.setItem('userInfo', JSON.stringify(normalized));
         localStorage.setItem('isLoggedIn', 'true');
-        Toast.success('登录成功！');
+        Toast.success('访客登录成功！');
         navigate('/agent-chat');
       } else {
-        Toast.error(result.message || '验证码错误或已过期，请重试');
+        Toast.error(result.message || '访客登录失败，请稍后重试');
       }
     } catch (error) {
-      console.error('登录失败:', error);
-      Toast.error('登录失败，请检查网络连接或稍后重试');
+      console.error('访客登录失败:', error);
+      Toast.error('访客登录失败，请检查网络连接或稍后重试');
     } finally {
-      setLoading(false);
+      setGuestLogging(false);
     }
   };
 
@@ -426,77 +707,189 @@ const LoginPage: React.FC = () => {
             <BrandIcon>
               <img src="/logo.png" alt="logo" />
             </BrandIcon>
-            <BrandTitle heading={5}>灵犀AI助手</BrandTitle>
+            <BrandTitle heading={5}>
+              {showInitPassword ? '设置登录密码' : '灵犀AI助手'}
+            </BrandTitle>
           </Brand>
+          {!showInitPassword && (
           <BroadcastWrapper>
-            <div className="track-wrap">
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-            </div>
-          </BroadcastWrapper>
+              <div className="track-wrap">
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              </div>
+            </BroadcastWrapper>
+          )}
         </Header>
 
-        <StyledForm
-          onSubmit={handleLogin}
-          initValues={{ email: '', code: '' }}
-          getFormApi={setFormApi}
-        >
-          <EmailFieldWrapper $hasError={!!emailError}>
-            <Form.Input
-              field="email"
-              label={
-                <span>
-                  <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
-                  邮箱
-                </span>
-              }
-              placeholder={emailError || '请输入邮箱地址'}
-              prefix={<IconMail />}
-              size="large"
-              onFocus={() => setEmailError('')}
-            />
-          </EmailFieldWrapper>
+        {showInitPassword ? (
+          // 密码初始化界面
+          <StyledForm
+            onSubmit={handleInitPassword}
+            initValues={{ password: '', confirmPassword: '' }}
+            getFormApi={setFormApi}
+          >
+            <div style={{ marginBottom: '16px', fontSize: '14px', color: '#5f738c' }}>
+              设置您的登录密码（密码至少6位）
+            </div>
 
-          <CodeInputWrapper>
-            <CodeFieldWrapper $hasError={!!codeError}>
+            <PasswordFieldWrapper $hasError={!!passwordError}>
               <Form.Input
-                field="code"
+                field="password"
                 label={
                   <span>
                     <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
-                    验证码
+                    密码
                   </span>
                 }
-                placeholder={codeError || '请输入验证码'}
+                type="password"
+                mode="password"
+                placeholder={passwordError || '请输入密码（至少6位）'}
+                prefix={<IconLock />}
                 size="large"
-                style={{ flex: 1 }}
-                onFocus={() => setCodeError('')}
+                onFocus={() => setPasswordError('')}
               />
-            </CodeFieldWrapper>
-            <Button
-              className="code-button"
-              onClick={handleSendCode}
-              loading={codeSending}
-              disabled={countdown > 0 || codeSending}
-            >
-              {codeSending ? '发送中...' : countdown > 0 ? `重新发送(${countdown}s)` : '获取验证码'}
-            </Button>
-          </CodeInputWrapper>
+            </PasswordFieldWrapper>
 
-          <div style={{ marginTop: '8px' }} />
+            <ConfirmPasswordFieldWrapper $hasError={!!confirmPasswordError}>
+              <Form.Input
+                field="confirmPassword"
+                label={
+                  <span>
+                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                    确认密码
+                  </span>
+                }
+                type="password"
+                mode="password"
+                placeholder={confirmPasswordError || '请再次输入密码'}
+                prefix={<IconLock />}
+                size="large"
+                onFocus={() => setConfirmPasswordError('')}
+              />
+            </ConfirmPasswordFieldWrapper>
 
-          <LoginButton type="primary" htmlType="submit" loading={loading}>
-            登录
-          </LoginButton>
-        </StyledForm>
+            <div style={{ marginTop: '8px' }} />
+
+            <LoginButton type="primary" htmlType="submit" loading={loading}>
+              完成设置
+            </LoginButton>
+
+            <GuestLoginWrapper>
+              <div style={{ flex: 1 }} />
+              <SwitchLoginButton
+                onClick={handleSkipPasswordInit}
+                disabled={loading}
+                type="button"
+              >
+                跳过
+              </SwitchLoginButton>
+            </GuestLoginWrapper>
+          </StyledForm>
+        ) : (
+          // 正常登录界面
+          <StyledForm
+            onSubmit={handleLogin}
+            initValues={{ email: '', code: '', password: '' }}
+            getFormApi={setFormApi}
+          >
+            <EmailFieldWrapper $hasError={!!emailError}>
+              <Form.Input
+                field="email"
+                label={
+                  <span>
+                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                    邮箱
+                  </span>
+                }
+                placeholder={emailError || '请输入邮箱地址'}
+                prefix={<IconMail />}
+                size="large"
+                onFocus={() => setEmailError('')}
+              />
+            </EmailFieldWrapper>
+
+            {loginMode === 'code' ? (
+              <CodeInputWrapper>
+                <CodeFieldWrapper $hasError={!!codeError}>
+                  <Form.Input
+                    field="code"
+                    label={
+                      <span>
+                        <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                        验证码
+                      </span>
+                    }
+                    placeholder={codeError || '请输入验证码'}
+                    size="large"
+                    style={{ flex: 1 }}
+                    onFocus={() => setCodeError('')}
+                  />
+                </CodeFieldWrapper>
+                <Button
+                  className="code-button"
+                  onClick={handleSendCode}
+                  loading={codeSending}
+                  disabled={countdown > 0 || codeSending}
+                >
+                  {codeSending ? '发送中...' : countdown > 0 ? `重新发送(${countdown}s)` : '获取验证码'}
+                </Button>
+              </CodeInputWrapper>
+            ) : (
+              <PasswordFieldWrapper $hasError={!!passwordError}>
+                <Form.Input
+                  field="password"
+                  label={
+                    <span>
+                      <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                      密码
+                    </span>
+                  }
+                  type="password"
+                  mode="password"
+                  placeholder={passwordError || '请输入密码（至少6位）'}
+                  prefix={<IconLock />}
+                  size="large"
+                  onFocus={() => setPasswordError('')}
+                />
+              </PasswordFieldWrapper>
+            )}
+
+            <div style={{ marginTop: '8px' }} />
+
+            <LoginButton type="primary" htmlType="submit" loading={loading}>
+              登录
+            </LoginButton>
+
+            <GuestLoginWrapper>
+              <SwitchLoginButton
+                onClick={() => {
+                  setLoginMode(loginMode === 'code' ? 'password' : 'code');
+                  setEmailError('');
+                  setCodeError('');
+                  setPasswordError('');
+                }}
+                disabled={loading || guestLogging}
+                type="button"
+              >
+                {loginMode === 'code' ? '邮箱密码登录' : '邮箱验证码登录'}
+              </SwitchLoginButton>
+              <GuestLoginButton
+                onClick={handleGuestLogin}
+                disabled={guestLogging || loading}
+              >
+                {guestLogging ? '访客登录中...' : '访客登录☞'}
+              </GuestLoginButton>
+            </GuestLoginWrapper>
+          </StyledForm>
+        )}
       </LoginCard>
     </LoginContainer>
   );

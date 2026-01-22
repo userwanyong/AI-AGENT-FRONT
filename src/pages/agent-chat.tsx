@@ -122,9 +122,9 @@ export const AgentChatPage: React.FC = () => {
 
   const GuestLoginToastContent: React.FC = () => (
     <span>
-      游客模式仅展示,不可操作
+      访客模式仅展示,不可操作
       <br />
-      请使用默认账号
+      请选择其他登录方式
       <span
         style={{
           color: 'var(--semi-color-primary)',
@@ -136,13 +136,12 @@ export const AgentChatPage: React.FC = () => {
       >
         登录
       </span>
-      体验
     </span>
   );
 
   const UseLoginToastContent: React.FC = () => (
     <span>
-      当前账号权限不足，可使用游客身份
+      当前账号权限不足，可使用访客身份
       <span
         style={{
           color: 'var(--semi-color-primary)',

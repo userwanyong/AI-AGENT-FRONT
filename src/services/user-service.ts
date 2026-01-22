@@ -264,13 +264,75 @@ export class UserService {
   }
 
   /**
+   * 邮箱密码登录
+   * @param email 邮箱地址
+   * @param password 密码
+   * @returns Promise<{success: boolean, data?: any, message?: string}>
+   */
+  static async loginByEmailPassword(email: string, password: string): Promise<{success: boolean, data?: any, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/email/pwd/login`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ email, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.msg || '登录失败' };
+      }
+    } catch (error) {
+      console.error('邮箱密码登录请求失败:', error);
+      return { success: false, message: '登录失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 初始化邮箱用户密码（首次登录）
+   * @param email 邮箱地址
+   * @param password 密码
+   * @param confirmPassword 确认密码
+   * @returns Promise<{success: boolean, data?: any, message?: string}>
+   */
+  static async initEmailPassword(email: string, password: string, confirmPassword: string): Promise<{success: boolean, data?: any, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/email/init/pwd`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ email, password, confirmPassword }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.msg || '密码初始化失败' };
+      }
+    } catch (error) {
+      console.error('初始化密码请求失败:', error);
+      return { success: false, message: '密码初始化失败,请检查网络连接' };
+    }
+  }
+
+  /**
    * 验证管理员用户登录
    * @param loginData 登录数据
-   * @returns Promise<boolean> 登录是否成功
+   * @returns Promise<{success: boolean, data?: any, message?: string}> 登录结果
    */
-  static async validateAdminUserLogin(loginData: AdminUserLoginRequestDTO): Promise<boolean> {
+  static async validateAdminUserLogin(loginData: AdminUserLoginRequestDTO): Promise<{success: boolean, data?: any, message?: string}> {
     try {
-      const response = await fetch(`${API_ENDPOINTS.ADMIN_USER.BASE}${API_ENDPOINTS.ADMIN_USER.VALIDATE_LOGIN}`, {
+      const response = await fetch(`${API_ENDPOINTS.USER.BASE}${API_ENDPOINTS.ADMIN_USER.VALIDATE_LOGIN}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
         body: stringifySafely(loginData),
@@ -280,17 +342,16 @@ export class UserService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await parseResponseJsonSafely(response) as ApiResponse<boolean> & { info?: string };
+      const result = await parseResponseJsonSafely(response) as ApiResponse<any> & { info?: string };
 
       if (result.code === '0000') {
-        return result.data || false;
+        return { success: true, data: result.data };
       } else {
-        console.error('登录验证失败:', result.info || result.msg);
-        return false;
+        return { success: false, message: result.info || result.msg || '登录失败' };
       }
     } catch (error) {
       console.error('登录验证请求失败:', error);
-      return false;
+      return { success: false, message: '登录失败,请检查网络连接' };
     }
   }
 }
@@ -331,6 +392,7 @@ export interface EmailLoginResponseDTO {
   createTime: string;
   updateTime: string;
   token: string;
+  first: boolean; // 是否首次登录
 }
 
 // 定义管理员登录请求数据类型
