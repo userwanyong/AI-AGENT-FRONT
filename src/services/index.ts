@@ -9,3 +9,4 @@ export { AiAgentDrawService } from './ai-agent-draw-service';
 export { AiAgentService } from './ai-agent-service';
 export { AdminUserService } from './admin-user-service';
 export { UserService } from './user-service';
+export type { AdminUserLoginRequestDTO } from './user-service';

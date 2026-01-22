@@ -7,13 +7,11 @@ import {
   Form,
   Toast,
   Typography,
-  Select,
   Avatar,
   TextArea,
-  Input,
   Radio,
 } from '@douyinfe/semi-ui';
-import { IconUpload, IconUser, IconMail, IconPhone } from '@douyinfe/semi-icons';
+import { IconUpload, IconUser } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
 import { UserService, UserInfoResponseDTO, UserInfoRequestDTO } from '../services/user-service';
@@ -165,8 +163,6 @@ const UserInfoPage: React.FC = () => {
           userId: data.userId,
           nickname: data.nickname,
           sex: data.sex,
-          phone: data.phone,
-          email: data.email,
           language: data.language,
           bio: data.bio,
         });
@@ -313,60 +309,6 @@ const UserInfoPage: React.FC = () => {
                   </span>
                 </Radio>
               </Form.RadioGroup>
-              <Form.Input
-                field="phone"
-                label="电话"
-                prefix={<IconPhone />}
-                placeholder="请输入电话"
-                rules={[
-                  {
-                    validator: (
-                      _rule: any,
-                      value: any,
-                      callback: (error?: string | void) => void
-                    ) => {
-                      const v = (value || '').trim();
-                      if (!v) {
-                        callback();
-                        return true;
-                      }
-                      if (/^1[3-9]\d{9}$/.test(v)) {
-                        callback();
-                        return true;
-                      }
-                      callback('手机号格式不正确');
-                      return false;
-                    },
-                  },
-                ]}
-              />
-              <Form.Input
-                field="email"
-                label="邮箱"
-                prefix={<IconMail />}
-                placeholder="请输入邮箱"
-                rules={[
-                  {
-                    validator: (
-                      _rule: any,
-                      value: any,
-                      callback: (error?: string | void) => void
-                    ) => {
-                      const v = (value || '').trim();
-                      if (!v) {
-                        callback();
-                        return true;
-                      }
-                      if (/^[^\s@]+@[^\s@]+\.com$/i.test(v)) {
-                        callback();
-                        return true;
-                      }
-                      callback('邮箱格式错误');
-                      return false;
-                    },
-                  },
-                ]}
-              />
               <Form.RadioGroup field="language" label="偏好语言">
                 <Radio value={0}>中文</Radio>
                 <Radio value={1}>英文</Radio>

@@ -65,7 +65,7 @@ export class UserService {
    */
   static async getUserHistory(): Promise<string[]> {
     try {
-      const response = await fetch(`${API_ENDPOINTS.ADMIN_USER.BASE}/user/history`, {
+      const response = await fetch(`${API_ENDPOINTS.USER.BASE}/history`, {
         method: 'GET',
         headers: getDefaultHeaders(),
       });
@@ -89,7 +89,7 @@ export class UserService {
       if (!sessionId) {
         throw new Error('缺少会话ID');
       }
-      const url = `${API_ENDPOINTS.ADMIN_USER.BASE}/history/delete/${encodeURIComponent(
+      const url = `${API_ENDPOINTS.USER.BASE}/history/delete/${encodeURIComponent(
         sessionId
       )}`;
       const response = await fetch(url, {
@@ -118,7 +118,7 @@ export class UserService {
   static async getUserSession(sessionId: string): Promise<any[]> {
     try {
       const response = await fetch(
-        `${API_ENDPOINTS.ADMIN_USER.BASE}/user/session?session_id=${sessionId}`,
+        `${API_ENDPOINTS.USER.BASE}/session?session_id=${sessionId}`,
         {
           method: 'GET',
           headers: getDefaultHeaders(),
@@ -201,6 +201,98 @@ export class UserService {
       throw error;
     }
   }
+
+  /**
+   * 发送邮箱登录验证码
+   * @param email 邮箱地址
+   * @returns Promise<{success: boolean, message?: string}>
+   */
+  static async sendEmailCode(email: string): Promise<{success: boolean, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/email/code`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ email }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      // 后端返回格式: {code, message, ...}
+      // code === '0000' 表示成功
+      if (result.code === '0000') {
+        return { success: true };
+      } else {
+        return { success: false, message: result.msg || '发送验证码失败' };
+      }
+    } catch (error) {
+      console.error('发送验证码请求失败:', error);
+      return { success: false, message: '发送验证码失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 邮箱验证码登录
+   * @param email 邮箱地址
+   * @param code 验证码
+   * @returns Promise<{success: boolean, data?: any, message?: string}>
+   */
+  static async loginByEmail(email: string, code: string): Promise<{success: boolean, data?: any, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/email/login`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ email, code }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.msg || '登录失败' };
+      }
+    } catch (error) {
+      console.error('邮箱登录请求失败:', error);
+      return { success: false, message: '登录失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 验证管理员用户登录
+   * @param loginData 登录数据
+   * @returns Promise<boolean> 登录是否成功
+   */
+  static async validateAdminUserLogin(loginData: AdminUserLoginRequestDTO): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.ADMIN_USER.BASE}${API_ENDPOINTS.ADMIN_USER.VALIDATE_LOGIN}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely(loginData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response) as ApiResponse<boolean> & { info?: string };
+
+      if (result.code === '0000') {
+        return result.data || false;
+      } else {
+        console.error('登录验证失败:', result.info || result.msg);
+        return false;
+      }
+    } catch (error) {
+      console.error('登录验证请求失败:', error);
+      return false;
+    }
+  }
 }
 
 // DTO 类型声明
@@ -217,3 +309,32 @@ export interface UserInfoResponseDTO {
 }
 
 export interface UserInfoRequestDTO extends UserInfoResponseDTO {}
+
+// 定义邮箱验证码请求数据类型
+export interface EmailCodeRequestDTO {
+  email: string;
+}
+
+// 定义邮箱登录请求数据类型
+export interface EmailLoginRequestDTO {
+  email: string;
+  code: string;
+}
+
+// 定义邮箱登录响应数据类型
+export interface EmailLoginResponseDTO {
+  id: number;
+  username: string;
+  status: number; // 0-正常 1-禁用
+  role: number; // 0-管理员 1-用户
+  avatar?: string;
+  createTime: string;
+  updateTime: string;
+  token: string;
+}
+
+// 定义管理员登录请求数据类型
+export interface AdminUserLoginRequestDTO {
+  username: string;
+  password: string;
+}

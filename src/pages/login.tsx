@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 
 import styled from 'styled-components';
 import { Button, Form, Toast, Typography } from '@douyinfe/semi-ui';
-import { IconEyeClosed, IconEyeOpened, IconLock, IconUser } from '@douyinfe/semi-icons';
+import { IconMail } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
-import { AdminUserService, UserService } from '../services';
+import { UserService } from '../services';
 import { Card } from '../components/common';
 
 const { Title } = Typography;
@@ -174,6 +174,7 @@ const BroadcastWrapper = styled.div`
     rgba(0, 0, 0, 1) 100%
   );
 `;
+
 const StyledForm = styled(Form)`
   .semi-form-field {
     margin-bottom: 2px;
@@ -183,24 +184,22 @@ const StyledForm = styled(Form)`
     background-color: #ffffff;
     border: 1px solid var(--semi-color-border);
     border-radius: 6px;
+    transition: all 0.3s ease;
   }
   .semi-input-wrapper:focus-within {
     border-color: var(--semi-color-primary);
   }
-  .reset-pwd-link {
-    background: transparent !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    color: #1a73e8 !important;
-    cursor: pointer;
+
+  /* 去掉输入框自动填充的阴影,保留边框 */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: none !important;
+    -webkit-text-fill-color: inherit !important;
+    transition: background-color 5000s ease-in-out 0s;
   }
-  .reset-pwd-link:hover,
-  .reset-pwd-link:focus {
-    background: transparent !important;
-    box-shadow: none !important;
-    color: #0b5ed7 !important;
-    text-decoration: underline;
-  }
+
   @media (max-width: ${theme.breakpoints.sm}) {
     .semi-input-wrapper {
       height: 34px;
@@ -208,9 +207,40 @@ const StyledForm = styled(Form)`
   }
 `;
 
+// 错误状态的输入框包装器
+const EmailFieldWrapper = styled.div<{ $hasError: boolean }>`
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
+const CodeFieldWrapper = styled.div<{ $hasError: boolean }>`
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
 const LoginButton = styled(Button)`
   width: 100%;
-  height: 38px; /* 降低按钮高度 */
+  height: 38px;
   border-radius: ${theme.borderRadius.base};
   background: linear-gradient(135deg, #9ac6a2 0%, #75ad80 100%) !important;
   border: none !important;
@@ -221,238 +251,170 @@ const LoginButton = styled(Button)`
   }
 `;
 
-/* 取消验证码登录与注册按钮区域 */
+const CodeInputWrapper = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 2px;
 
-const RoleRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr; /* 仅保留一个游客登录按钮 */
-  gap: 10px;
-  margin-top: ${theme.spacing.base};
-
-  @media (max-width: ${theme.breakpoints.md}) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: ${theme.breakpoints.sm}) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-// 彩色光束沿按钮四周顺时针转圈
-const GlowWrapper = styled.div`
-  position: relative;
-  display: block;
-  width: 100%;
-`;
-
-const GlowButtonInner = styled(Button)`
-  position: relative;
-  border-radius: ${theme.borderRadius.base};
-  background: #ffffff !important;
-  color: #1a73e8 !important;
-  font-weight: 600;
-  width: 100%;
-  height: 38px; /* 与确认按钮一致 */
-  border: none !important;
-  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.12);
-
-  &:hover {
-    background: #f7faff !important;
-    box-shadow: 0 6px 16px rgba(26, 115, 232, 0.24);
+  .semi-form-field {
+    flex: 3; /* 验证码输入框占3份 */
+    margin-bottom: 0;
   }
 
-  @media (max-width: ${theme.breakpoints.sm}) {
-    height: 40px; /* 小屏与确认按钮一致 */
-  }
-`;
+  .code-button {
+    height: 38px;
+    padding: 0 20px;
+    flex: 1; /* 按钮占1份 */
+    min-width: 100px;
+    border-radius: ${theme.borderRadius.base};
+    background: transparent !important;
+    border: 1.5px solid #9ac6a2 !important;
+    color: #75ad80 !important;
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    margin-top: 22px;
+    transition: all 0.3s ease;
 
-const BeamSvg = styled.svg`
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-
-  rect {
-    fill: none;
-    stroke: url(#beamGradient);
-    stroke-width: 3.5;
-    stroke-linecap: round;
-    /* 使用百分比路径，形成一段彩色光束并顺时针移动 */
-    stroke-dasharray: 12 88;
-    animation: dashMove 2.8s linear infinite;
-  }
-
-  @keyframes dashMove {
-    from {
-      stroke-dashoffset: 0;
+    &:hover:not(:disabled) {
+      border-color: #75ad80 !important;
+      background: rgba(117, 173, 128, 0.08) !important;
     }
-    to {
-      stroke-dashoffset: -100;
-    } /* 负方向以顺时针效果 */
+
+    &:active:not(:disabled) {
+      background: rgba(117, 173, 128, 0.15) !important;
+    }
+
+    &:disabled {
+      border-color: #d9d9d9 !important;
+      color: #bfbfbf !important;
+      background: transparent !important;
+      cursor: not-allowed;
+    }
+  }
+
+  @media (max-width: ${theme.breakpoints.sm}) {
+    gap: 8px;
+
+    .code-button {
+      height: 34px;
+      padding: 0 16px;
+      font-size: 13px;
+    }
   }
 `;
-
-type GuestGlowButtonProps = {
-  onClick: () => void | Promise<void>;
-  size?: 'large' | 'default' | 'small';
-  children?: React.ReactNode;
-};
-
-const GuestGlowButton: React.FC<GuestGlowButtonProps> = ({
-  onClick,
-  size = 'default',
-  children,
-}) => (
-  <GlowWrapper>
-    <GlowButtonInner onClick={onClick} size={size}>
-      {children}
-    </GlowButtonInner>
-    <BeamSvg viewBox="0 0 100 48" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="beamGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#ff6b6b" />
-          <stop offset="25%" stopColor="#f9ca24" />
-          <stop offset="50%" stopColor="#6ab04c" />
-          <stop offset="75%" stopColor="#00a8ff" />
-          <stop offset="100%" stopColor="#9c88ff" />
-        </linearGradient>
-      </defs>
-      <rect x="2" y="2" width="96" height="44" rx="8" ry="8" pathLength="100" />
-    </BeamSvg>
-  </GlowWrapper>
-);
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [formApi, setFormApi] = useState<any>(null);
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetCooldown, setResetCooldown] = useState(0);
+  const [codeSending, setCodeSending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [emailError, setEmailError] = useState('');
+  const [codeError, setCodeError] = useState('');
 
   useEffect(() => {
-    if (resetCooldown > 0) {
-      const t = setInterval(() => setResetCooldown((c) => (c > 0 ? c - 1 : 0)), 1000);
-      return () => clearInterval(t);
+    if (countdown > 0) {
+      const timer = setInterval(() => setCountdown((c) => c - 1), 1000);
+      return () => clearInterval(timer);
     }
-  }, [resetCooldown]);
+  }, [countdown]);
+
+  const handleSendCode = async () => {
+    const email = formApi?.getValue('email') || '';
+
+    // 清除验证码区域的错误(不影响邮箱区域)
+    setCodeError('');
+
+    // 清除邮箱之前的错误
+    setEmailError('');
+
+    // 手动验证邮箱
+    if (!email) {
+      setEmailError('请输入邮箱地址');
+      return;
+    }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setEmailError('请输入正确的邮箱格式');
+      return;
+    }
+
+    if (countdown > 0) {
+      return;
+    }
+
+    setCodeSending(true);
+    try {
+      const result = await UserService.sendEmailCode(email);
+      if (result.success) {
+        Toast.success('验证码已发送，请注意查收');
+        setCountdown(60);
+      } else {
+        Toast.error(result.message || '发送验证码失败，请稍后重试');
+      }
+    } catch (error) {
+      console.error('发送验证码失败:', error);
+      Toast.error('发送验证码失败，请检查网络连接');
+    } finally {
+      setCodeSending(false);
+    }
+  };
 
   const handleLogin = async (values: Record<string, any>) => {
+    // 清除之前的错误
+    setEmailError('');
+    setCodeError('');
+
+    // 验证邮箱
+    const email = values.email || '';
+    if (!email) {
+      setEmailError('请输入邮箱地址');
+    } else if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setEmailError('请输入正确的邮箱格式');
+    }
+
+    // 验证验证码
+    if (!values.code) {
+      setCodeError('请输入验证码');
+    }
+
+    // 如果有错误,不继续执行
+    if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/) || !values.code) {
+      return;
+    }
+
     setLoading(true);
     try {
-      if (!values.username || !values.password) {
-        Toast.error('请输入账号和密码');
-        return;
-      }
+      const result = await UserService.loginByEmail(values.email, values.code);
 
-      const isLoginSuccess = await AdminUserService.validateAdminUserLogin({
-        username: values.username,
-        password: values.password,
-      });
-
-      if (isLoginSuccess) {
-        // 统一提取与规范化用户信息，供 agent-chat 页面展示
-        const raw =
-          typeof isLoginSuccess === 'object'
-            ? (isLoginSuccess as any).userInfo || (isLoginSuccess as any).data || isLoginSuccess
-            : {};
+      if (result.success && result.data) {
+        const raw = result.data;
         const normalized = {
-          id: raw.id ?? raw.userId ?? raw.uid ?? undefined,
-          username: raw.username ?? raw.name ?? values.username,
-          role: raw.role ?? raw.userRole ?? 1,
-          avatar: raw.avatar ?? undefined,
-        } as any;
+          id: raw.id,
+          username: raw.username,
+          email: values.email,
+          role: raw.role,
+          avatar: raw.avatar,
+          status: raw.status,
+          createTime: raw.createTime,
+          updateTime: raw.updateTime,
+        };
 
-        // 保存 token（若存在）与用户信息
-        const token = (isLoginSuccess as any).token ?? raw.token;
-        if (token) {
-          localStorage.setItem('token', token);
-        }
+        // 保存 token
+        localStorage.setItem('token', raw.token);
         localStorage.setItem('userInfo', JSON.stringify(normalized));
         localStorage.setItem('isLoggedIn', 'true');
         Toast.success('登录成功！');
         navigate('/agent-chat');
       } else {
-        Toast.error('账号或密码错误，请重试');
+        Toast.error(result.message || '验证码错误或已过期，请重试');
       }
     } catch (error) {
       console.error('登录失败:', error);
       Toast.error('登录失败，请检查网络连接或稍后重试');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const guestLogin = async () => {
-    setLoading(true);
-    try {
-      // 使用指定游客账号调用真实登录接口
-      const result: any = await AdminUserService.validateAdminUserLogin({
-        username: 'tourist',
-        password: '123456',
-      });
-
-      if (result) {
-        // 如果后端返回对象（含 token、userInfo），优先使用真实数据
-        if (typeof result === 'object') {
-          if (result.token) {
-            localStorage.setItem('token', result.token);
-          }
-          const raw = result.userInfo || result.data || result;
-          const normalized = {
-            id: raw.id ?? raw.userId ?? raw.uid ?? undefined,
-            username: raw.username ?? raw.name ?? 'tourist',
-            role: raw.role ?? raw.userRole ?? 2,
-            avatar: raw.avatar ?? undefined,
-          } as any;
-          localStorage.setItem('userInfo', JSON.stringify(normalized));
-        } else {
-          // 如果仅返回布尔值，作为成功登录处理，写入游客信息
-          localStorage.setItem('userInfo', JSON.stringify({ username: 'tourist', role: 2 }));
-        }
-        localStorage.setItem('isLoggedIn', 'true');
-        Toast.success('游客登录成功');
-        navigate('/agent-chat');
-      } else {
-        Toast.error('游客登录失败：账号或密码错误');
-      }
-    } catch (error) {
-      console.error('游客登录失败:', error);
-      Toast.error('游客登录失败，请检查网络后重试');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPwd = async () => {
-    try {
-      if (resetLoading) {
-        Toast.info('正在重置，请稍候');
-        return;
-      }
-      if (resetCooldown > 0) {
-        Toast.info(`密码已重置为123456，请勿频繁点击`);
-        return;
-      }
-      const username = formApi?.getValue('username') || '';
-      if (!username) {
-        Toast.error('请输入账号后再重置密码');
-        return;
-      }
-      setResetLoading(true);
-      const resp = await UserService.resetPassword(username);
-      if (resp.code === '0000') {
-        Toast.success('重置密码成功');
-        setResetCooldown(15);
-      } else {
-        Toast.error(resp.msg || '重置密码失败');
-        setResetCooldown(4);
-      }
-    } catch (e) {
-      Toast.error('重置密码失败');
-      setResetCooldown(4);
-    } finally {
-      setResetLoading(false);
     }
   };
 
@@ -468,130 +430,73 @@ const LoginPage: React.FC = () => {
           </Brand>
           <BroadcastWrapper>
             <div className="track-wrap">
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+              <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
             </div>
           </BroadcastWrapper>
         </Header>
 
         <StyledForm
           onSubmit={handleLogin}
-          initValues={{ username: 'wanyj', password: '123456', remember: true }}
+          initValues={{ email: '', code: '' }}
           getFormApi={setFormApi}
         >
-          <Form.Input
-            field="username"
-            label="用户名"
-            placeholder="请输入账号"
-            prefix={<IconUser />}
-            size="large"
-            rules={[{ required: true, message: '请输入账号' }]}
-          />
+          <EmailFieldWrapper $hasError={!!emailError}>
+            <Form.Input
+              field="email"
+              label={
+                <span>
+                  <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                  邮箱
+                </span>
+              }
+              placeholder={emailError || '请输入邮箱地址'}
+              prefix={<IconMail />}
+              size="large"
+              onFocus={() => setEmailError('')}
+            />
+          </EmailFieldWrapper>
 
-          <Form.Input
-            field="password"
-            type={showPassword ? 'text' : 'password'}
-            label="密码"
-            placeholder="请输入密码"
-            prefix={<IconLock />}
-            size="large"
-            suffix={
-              <Button
-                theme="borderless"
-                icon={showPassword ? <IconEyeClosed /> : <IconEyeOpened />}
-                onClick={() => {
-                  const el = document.getElementById('loginPwd') as HTMLInputElement | null;
-                  const start = el?.selectionStart ?? el?.value.length ?? 0;
-                  const end = el?.selectionEnd ?? el?.value.length ?? 0;
-                  setShowPassword(!showPassword);
-                  setTimeout(() => {
-                    const el2 = document.getElementById('loginPwd') as HTMLInputElement | null;
-                    if (el2) {
-                      el2.focus();
-                      el2.setSelectionRange(start, end);
-                    }
-                  }, 0);
-                }}
-                style={{ padding: '4px' }}
+          <CodeInputWrapper>
+            <CodeFieldWrapper $hasError={!!codeError}>
+              <Form.Input
+                field="code"
+                label={
+                  <span>
+                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                    验证码
+                  </span>
+                }
+                placeholder={codeError || '请输入验证码'}
+                size="large"
+                style={{ flex: 1 }}
+                onFocus={() => setCodeError('')}
               />
-            }
-            id="loginPwd"
-            rules={[{ required: true, message: '请输入密码' }]}
-          />
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginTop: '4px',
-              marginBottom: '8px',
-            }}
-          >
-            <Form.Checkbox field="remember" noLabel>
-              记住我
-            </Form.Checkbox>
+            </CodeFieldWrapper>
             <Button
-              theme="borderless"
-              type="primary"
-              onClick={handleResetPwd}
-              className="reset-pwd-link"
-              style={{
-                background: 'transparent',
-                boxShadow: 'none',
-                padding: 0,
-                cursor: resetLoading || resetCooldown > 0 ? 'not-allowed' : 'pointer',
-                opacity: resetLoading || resetCooldown > 0 ? 0.8 : 1,
-              }}
+              className="code-button"
+              onClick={handleSendCode}
+              loading={codeSending}
+              disabled={countdown > 0 || codeSending}
             >
-              {resetCooldown > 0 ? `重置密码(${resetCooldown}s)` : '重置密码'}
+              {codeSending ? '发送中...' : countdown > 0 ? `重新发送(${countdown}s)` : '获取验证码'}
             </Button>
-          </div>
+          </CodeInputWrapper>
+
+          <div style={{ marginTop: '8px' }} />
 
           <LoginButton type="primary" htmlType="submit" loading={loading}>
             登录
           </LoginButton>
         </StyledForm>
-
-        <RoleRow>
-          <GuestGlowButton onClick={guestLogin} size="large">
-            以游客身份登录
-          </GuestGlowButton>
-        </RoleRow>
       </LoginCard>
     </LoginContainer>
   );
