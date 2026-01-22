@@ -2,11 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Button, Form, Toast, Typography } from '@douyinfe/semi-ui';
-import { IconEyeClosed, IconEyeOpened, IconLock, IconUser } from '@douyinfe/semi-icons';
+import { Button, Form, Toast, Typography, Modal } from '@douyinfe/semi-ui';
+import { IconMail, IconLock } from '@douyinfe/semi-icons';
 
 import { theme } from '../styles/theme';
-import { AdminUserService, UserService } from '../services';
+import { UserService } from '../services';
 import { Card } from '../components/common';
 
 const { Title } = Typography;
@@ -174,6 +174,7 @@ const BroadcastWrapper = styled.div`
     rgba(0, 0, 0, 1) 100%
   );
 `;
+
 const StyledForm = styled(Form)`
   .semi-form-field {
     margin-bottom: 2px;
@@ -183,24 +184,22 @@ const StyledForm = styled(Form)`
     background-color: #ffffff;
     border: 1px solid var(--semi-color-border);
     border-radius: 6px;
+    transition: all 0.3s ease;
   }
   .semi-input-wrapper:focus-within {
     border-color: var(--semi-color-primary);
   }
-  .reset-pwd-link {
-    background: transparent !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    color: #1a73e8 !important;
-    cursor: pointer;
+
+  /* 去掉输入框自动填充的阴影,保留边框 */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: none !important;
+    -webkit-text-fill-color: inherit !important;
+    transition: background-color 5000s ease-in-out 0s;
   }
-  .reset-pwd-link:hover,
-  .reset-pwd-link:focus {
-    background: transparent !important;
-    box-shadow: none !important;
-    color: #0b5ed7 !important;
-    text-decoration: underline;
-  }
+
   @media (max-width: ${theme.breakpoints.sm}) {
     .semi-input-wrapper {
       height: 34px;
@@ -208,9 +207,71 @@ const StyledForm = styled(Form)`
   }
 `;
 
+// 错误状态的输入框包装器
+const EmailFieldWrapper = styled.div<{ $hasError: boolean }>`
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
+const CodeFieldWrapper = styled.div<{ $hasError: boolean }>`
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
+const PasswordFieldWrapper = styled.div<{ $hasError: boolean }>`
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
+const ConfirmPasswordFieldWrapper = styled.div<{ $hasError: boolean }>`
+  margin-top: 4px;
+  .semi-input-wrapper {
+    ${props => props.$hasError && `
+      border-color: #ff4d4f !important;
+      background-color: #fff2f0 !important;
+    `}
+    ${props => props.$hasError && `
+      &:focus-within {
+        border-color: #ff4d4f !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
+      }
+    `}
+  }
+`;
+
 const LoginButton = styled(Button)`
   width: 100%;
-  height: 38px; /* 降低按钮高度 */
+  height: 38px;
   border-radius: ${theme.borderRadius.base};
   background: linear-gradient(135deg, #9ac6a2 0%, #75ad80 100%) !important;
   border: none !important;
@@ -221,238 +282,420 @@ const LoginButton = styled(Button)`
   }
 `;
 
-/* 取消验证码登录与注册按钮区域 */
-
-const RoleRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr; /* 仅保留一个游客登录按钮 */
-  gap: 10px;
+const GuestLoginWrapper = styled.div`
   margin-top: ${theme.spacing.base};
-
-  @media (max-width: ${theme.breakpoints.md}) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: ${theme.breakpoints.sm}) {
-    grid-template-columns: 1fr;
-  }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 `;
 
-// 彩色光束沿按钮四周顺时针转圈
-const GlowWrapper = styled.div`
-  position: relative;
-  display: block;
-  width: 100%;
-`;
-
-const GlowButtonInner = styled(Button)`
-  position: relative;
-  border-radius: ${theme.borderRadius.base};
-  background: #ffffff !important;
-  color: #1a73e8 !important;
-  font-weight: 600;
-  width: 100%;
-  height: 38px; /* 与确认按钮一致 */
+const GuestLoginButton = styled.button`
+  background: transparent !important;
   border: none !important;
-  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.12);
+  color: #75ad80 !important;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 
-  &:hover {
-    background: #f7faff !important;
-    box-shadow: 0 6px 16px rgba(26, 115, 232, 0.24);
+  &:hover:not(:disabled) {
+    color: #5a9a66 !important;
+    text-decoration: underline;
+  }
+
+  &:active:not(:disabled) {
+    color: #4a8656 !important;
+  }
+
+  &:disabled {
+    color: #d9d9d9 !important;
+    cursor: not-allowed;
   }
 
   @media (max-width: ${theme.breakpoints.sm}) {
-    height: 40px; /* 小屏与确认按钮一致 */
+    font-size: 12px;
   }
 `;
 
-const BeamSvg = styled.svg`
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+const SwitchLoginButton = styled.button`
+  background: transparent !important;
+  border: none !important;
+  color: #75ad80 !important;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 
-  rect {
-    fill: none;
-    stroke: url(#beamGradient);
-    stroke-width: 3.5;
-    stroke-linecap: round;
-    /* 使用百分比路径，形成一段彩色光束并顺时针移动 */
-    stroke-dasharray: 12 88;
-    animation: dashMove 2.8s linear infinite;
+  &:hover:not(:disabled) {
+    color: #5a9a66 !important;
+    text-decoration: underline;
   }
 
-  @keyframes dashMove {
-    from {
-      stroke-dashoffset: 0;
+  &:active:not(:disabled) {
+    color: #4a8656 !important;
+  }
+
+  &:disabled {
+    color: #d9d9d9 !important;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: ${theme.breakpoints.sm}) {
+    font-size: 12px;
+  }
+`;
+
+const CodeInputWrapper = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 2px;
+
+  .semi-form-field {
+    flex: 3; /* 验证码输入框占3份 */
+    margin-bottom: 0;
+  }
+
+  .code-button {
+    height: 38px;
+    padding: 0 20px;
+    flex: 1; /* 按钮占1份 */
+    min-width: 100px;
+    border-radius: ${theme.borderRadius.base};
+    background: transparent !important;
+    border: 1.5px solid #9ac6a2 !important;
+    color: #75ad80 !important;
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    margin-top: 22px;
+    transition: all 0.3s ease;
+
+    &:hover:not(:disabled) {
+      border-color: #75ad80 !important;
+      background: rgba(117, 173, 128, 0.08) !important;
     }
-    to {
-      stroke-dashoffset: -100;
-    } /* 负方向以顺时针效果 */
+
+    &:active:not(:disabled) {
+      background: rgba(117, 173, 128, 0.15) !important;
+    }
+
+    &:disabled {
+      border-color: #d9d9d9 !important;
+      color: #bfbfbf !important;
+      background: transparent !important;
+      cursor: not-allowed;
+    }
+  }
+
+  @media (max-width: ${theme.breakpoints.sm}) {
+    gap: 8px;
+
+    .code-button {
+      height: 34px;
+      padding: 0 16px;
+      font-size: 13px;
+    }
   }
 `;
-
-type GuestGlowButtonProps = {
-  onClick: () => void | Promise<void>;
-  size?: 'large' | 'default' | 'small';
-  children?: React.ReactNode;
-};
-
-const GuestGlowButton: React.FC<GuestGlowButtonProps> = ({
-  onClick,
-  size = 'default',
-  children,
-}) => (
-  <GlowWrapper>
-    <GlowButtonInner onClick={onClick} size={size}>
-      {children}
-    </GlowButtonInner>
-    <BeamSvg viewBox="0 0 100 48" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="beamGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#ff6b6b" />
-          <stop offset="25%" stopColor="#f9ca24" />
-          <stop offset="50%" stopColor="#6ab04c" />
-          <stop offset="75%" stopColor="#00a8ff" />
-          <stop offset="100%" stopColor="#9c88ff" />
-        </linearGradient>
-      </defs>
-      <rect x="2" y="2" width="96" height="44" rx="8" ry="8" pathLength="100" />
-    </BeamSvg>
-  </GlowWrapper>
-);
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [formApi, setFormApi] = useState<any>(null);
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetCooldown, setResetCooldown] = useState(0);
+  const [codeSending, setCodeSending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [emailError, setEmailError] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [guestLogging, setGuestLogging] = useState(false);
+  const [loginMode, setLoginMode] = useState<'code' | 'password'>('code'); // 登录方式: 验证码或密码
+  const [showInitPassword, setShowInitPassword] = useState(false); // 是否显示密码创建界面
+  const [initPasswordEmail, setInitPasswordEmail] = useState(''); // 首次登录的邮箱
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
   useEffect(() => {
-    if (resetCooldown > 0) {
-      const t = setInterval(() => setResetCooldown((c) => (c > 0 ? c - 1 : 0)), 1000);
-      return () => clearInterval(t);
+    if (countdown > 0) {
+      const timer = setInterval(() => setCountdown((c) => c - 1), 1000);
+      return () => clearInterval(timer);
     }
-  }, [resetCooldown]);
+  }, [countdown]);
+
+  const handleSendCode = async () => {
+    const email = formApi?.getValue('email') || '';
+
+    // 清除验证码区域的错误(不影响邮箱区域)
+    setCodeError('');
+
+    // 清除邮箱之前的错误
+    setEmailError('');
+
+    // 手动验证邮箱
+    if (!email) {
+      setEmailError('请输入邮箱地址');
+      return;
+    }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setEmailError('请输入正确的邮箱格式');
+      return;
+    }
+
+    if (countdown > 0) {
+      return;
+    }
+
+    setCodeSending(true);
+    try {
+      const result = await UserService.sendEmailCode(email);
+      if (result.success) {
+        Toast.success('验证码已发送，请注意查收');
+        setCountdown(70);
+      } else {
+        Toast.error(result.message || '发送验证码失败，请稍后重试');
+      }
+    } catch (error) {
+      console.error('发送验证码失败:', error);
+      Toast.error('发送验证码失败，请检查网络连接');
+    } finally {
+      setCodeSending(false);
+    }
+  };
 
   const handleLogin = async (values: Record<string, any>) => {
-    setLoading(true);
-    try {
-      if (!values.username || !values.password) {
-        Toast.error('请输入账号和密码');
+    // 清除之前的错误
+    setEmailError('');
+    setCodeError('');
+    setPasswordError('');
+
+    // 验证邮箱
+    const email = values.email || '';
+    if (!email) {
+      setEmailError('请输入邮箱地址');
+      return;
+    } else if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setEmailError('请输入正确的邮箱格式');
+      return;
+    }
+
+    // 根据登录方式进行验证和登录
+    if (loginMode === 'code') {
+      // 验证码登录
+      if (!values.code) {
+        setCodeError('请输入验证码');
         return;
       }
 
-      const isLoginSuccess = await AdminUserService.validateAdminUserLogin({
-        username: values.username,
-        password: values.password,
-      });
+      setLoading(true);
+      try {
+        const result = await UserService.loginByEmail(values.email, values.code);
 
-      if (isLoginSuccess) {
-        // 统一提取与规范化用户信息，供 agent-chat 页面展示
-        const raw =
-          typeof isLoginSuccess === 'object'
-            ? (isLoginSuccess as any).userInfo || (isLoginSuccess as any).data || isLoginSuccess
-            : {};
-        const normalized = {
-          id: raw.id ?? raw.userId ?? raw.uid ?? undefined,
-          username: raw.username ?? raw.name ?? values.username,
-          role: raw.role ?? raw.userRole ?? 1,
-          avatar: raw.avatar ?? undefined,
-        } as any;
+        if (result.success && result.data) {
+          const raw = result.data;
 
-        // 保存 token（若存在）与用户信息
-        const token = (isLoginSuccess as any).token ?? raw.token;
-        if (token) {
-          localStorage.setItem('token', token);
+          const normalized = {
+            id: raw.id,
+            username: raw.username,
+            email: values.email,
+            role: raw.role,
+            avatar: raw.avatar,
+            status: raw.status,
+            createTime: raw.createTime,
+            updateTime: raw.updateTime,
+          };
+
+          // 保存 token，直接登录成功
+          localStorage.setItem('token', raw.token);
+          localStorage.setItem('userInfo', JSON.stringify(normalized));
+          localStorage.setItem('isLoggedIn', 'true');
+
+          // 检查是否是首次登录
+          if (raw.first === true) {
+            // 首次登录，提示用户设置密码但允许跳过
+            setTimeout(() => {
+              Modal.confirm({
+                title: '首次登录提示',
+                content: '检测到您是首次登录，建议设置登录密码以便下次使用密码登录。您也可以稍后在设置中修改密码。',
+                okText: '立即设置',
+                cancelText: '稍后设置',
+                onOk: () => {
+                  // 显示密码初始化界面
+                  setInitPasswordEmail(values.email);
+                  setShowInitPassword(true);
+                  setLoading(false);
+                },
+                onCancel: () => {
+                  // 直接进入聊天页面
+                  Toast.success('登录成功！');
+                  navigate('/agent-chat');
+                },
+              });
+            }, 500);
+          } else {
+            Toast.success('登录成功！');
+            navigate('/agent-chat');
+          }
+        } else {
+          Toast.error(result.message || '验证码错误或已过期，请重试');
         }
-        localStorage.setItem('userInfo', JSON.stringify(normalized));
-        localStorage.setItem('isLoggedIn', 'true');
+      } catch (error) {
+        console.error('登录失败:', error);
+        Toast.error('登录失败，请检查网络连接或稍后重试');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // 密码登录
+      if (!values.password) {
+        setPasswordError('请输入密码');
+        return;
+      }
+      if (values.password.length < 6) {
+        setPasswordError('密码至少为6位');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const result = await UserService.loginByEmailPassword(values.email, values.password);
+
+        if (result.success && result.data) {
+          const raw = result.data;
+          const normalized = {
+            id: raw.id,
+            username: raw.username,
+            email: values.email,
+            role: raw.role,
+            avatar: raw.avatar,
+            status: raw.status,
+            createTime: raw.createTime,
+            updateTime: raw.updateTime,
+          };
+
+          // 保存 token
+          localStorage.setItem('token', raw.token);
+          localStorage.setItem('userInfo', JSON.stringify(normalized));
+          localStorage.setItem('isLoggedIn', 'true');
+          Toast.success('登录成功！');
+          navigate('/agent-chat');
+        } else {
+          Toast.error(result.message || '邮箱或密码错误，请重试');
+        }
+      } catch (error) {
+        console.error('登录失败:', error);
+        Toast.error('登录失败，请检查网络连接或稍后重试');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleInitPassword = async (values: Record<string, any>) => {
+    // 清除之前的错误
+    setPasswordError('');
+    setConfirmPasswordError('');
+
+    // 验证密码
+    const password = values.password || '';
+    const confirmPassword = values.confirmPassword || '';
+
+    if (!password) {
+      setPasswordError('请输入密码');
+      return;
+    }
+    if (password.length < 6) {
+      setPasswordError('密码至少为6位');
+      return;
+    }
+    if (!confirmPassword) {
+      setConfirmPasswordError('请输入确认密码');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setConfirmPasswordError('两次输入的密码不一致');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await UserService.initEmailPassword(initPasswordEmail, password, confirmPassword);
+
+      if (result.success) {
+        Toast.success('密码设置成功！登录成功！');
+        navigate('/agent-chat');
+      } else {
+        Toast.error(result.message || '密码设置失败，请重试');
+      }
+    } catch (error) {
+      console.error('密码设置失败:', error);
+      Toast.error('密码设置失败，请检查网络连接或稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipPasswordInit = () => {
+    // 跳过密码设置，弹出确认提示框
+    Modal.confirm({
+      title: '使用默认密码',
+      content: '默认密码为 123456，请尽快修改密码以确保账户安全！',
+      okText: '确认',
+      cancelText: '继续设置密码',
+      onOk: () => {
+        // 确认使用默认密码，进入聊天页面
         Toast.success('登录成功！');
         navigate('/agent-chat');
-      } else {
-        Toast.error('账号或密码错误，请重试');
-      }
-    } catch (error) {
-      console.error('登录失败:', error);
-      Toast.error('登录失败，请检查网络连接或稍后重试');
-    } finally {
-      setLoading(false);
-    }
+      },
+      onCancel: () => {
+        // 继续留在密码创建界面
+      },
+    });
   };
 
-  const guestLogin = async () => {
-    setLoading(true);
+  const handleGuestLogin = async () => {
+    setGuestLogging(true);
     try {
-      // 使用指定游客账号调用真实登录接口
-      const result: any = await AdminUserService.validateAdminUserLogin({
+      const result = await UserService.validateAdminUserLogin({
         username: 'tourist',
-        password: '123456',
+        password: '123456'
       });
 
-      if (result) {
-        // 如果后端返回对象（含 token、userInfo），优先使用真实数据
-        if (typeof result === 'object') {
-          if (result.token) {
-            localStorage.setItem('token', result.token);
-          }
-          const raw = result.userInfo || result.data || result;
-          const normalized = {
-            id: raw.id ?? raw.userId ?? raw.uid ?? undefined,
-            username: raw.username ?? raw.name ?? 'tourist',
-            role: raw.role ?? raw.userRole ?? 2,
-            avatar: raw.avatar ?? undefined,
-          } as any;
-          localStorage.setItem('userInfo', JSON.stringify(normalized));
-        } else {
-          // 如果仅返回布尔值，作为成功登录处理，写入游客信息
-          localStorage.setItem('userInfo', JSON.stringify({ username: 'tourist', role: 2 }));
-        }
+      if (result.success && result.data) {
+        const raw = result.data;
+        const normalized = {
+          id: raw.id,
+          username: raw.username,
+          email: raw.email || '',
+          role: raw.role,
+          avatar: raw.avatar,
+          status: raw.status,
+          createTime: raw.createTime,
+          updateTime: raw.updateTime,
+        };
+
+        // 保存 token
+        localStorage.setItem('token', raw.token);
+        localStorage.setItem('userInfo', JSON.stringify(normalized));
         localStorage.setItem('isLoggedIn', 'true');
-        Toast.success('游客登录成功');
+        Toast.success('访客登录成功！');
         navigate('/agent-chat');
       } else {
-        Toast.error('游客登录失败：账号或密码错误');
+        Toast.error(result.message || '访客登录失败，请稍后重试');
       }
     } catch (error) {
-      console.error('游客登录失败:', error);
-      Toast.error('游客登录失败，请检查网络后重试');
+      console.error('访客登录失败:', error);
+      Toast.error('访客登录失败，请检查网络连接或稍后重试');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPwd = async () => {
-    try {
-      if (resetLoading) {
-        Toast.info('正在重置，请稍候');
-        return;
-      }
-      if (resetCooldown > 0) {
-        Toast.info(`密码已重置为123456，请勿频繁点击`);
-        return;
-      }
-      const username = formApi?.getValue('username') || '';
-      if (!username) {
-        Toast.error('请输入账号后再重置密码');
-        return;
-      }
-      setResetLoading(true);
-      const resp = await UserService.resetPassword(username);
-      if (resp.code === '0000') {
-        Toast.success('重置密码成功');
-        setResetCooldown(15);
-      } else {
-        Toast.error(resp.msg || '重置密码失败');
-        setResetCooldown(4);
-      }
-    } catch (e) {
-      Toast.error('重置密码失败');
-      setResetCooldown(4);
-    } finally {
-      setResetLoading(false);
+      setGuestLogging(false);
     }
   };
 
@@ -464,134 +707,189 @@ const LoginPage: React.FC = () => {
             <BrandIcon>
               <img src="/logo.png" alt="logo" />
             </BrandIcon>
-            <BrandTitle heading={5}>灵犀AI助手</BrandTitle>
+            <BrandTitle heading={5}>
+              {showInitPassword ? '设置登录密码' : '灵犀AI助手'}
+            </BrandTitle>
           </Brand>
+          {!showInitPassword && (
           <BroadcastWrapper>
-            <div className="track-wrap">
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
+              <div className="track-wrap">
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
+                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
               </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-              <div className="track">
-                ⚠️如登录失败，可能公共密码已被人测试修改，请重置密码后登录
-              </div>
-            </div>
-          </BroadcastWrapper>
+            </BroadcastWrapper>
+          )}
         </Header>
 
-        <StyledForm
-          onSubmit={handleLogin}
-          initValues={{ username: 'wanyj', password: '123456', remember: true }}
-          getFormApi={setFormApi}
-        >
-          <Form.Input
-            field="username"
-            label="用户名"
-            placeholder="请输入账号"
-            prefix={<IconUser />}
-            size="large"
-            rules={[{ required: true, message: '请输入账号' }]}
-          />
-
-          <Form.Input
-            field="password"
-            type={showPassword ? 'text' : 'password'}
-            label="密码"
-            placeholder="请输入密码"
-            prefix={<IconLock />}
-            size="large"
-            suffix={
-              <Button
-                theme="borderless"
-                icon={showPassword ? <IconEyeClosed /> : <IconEyeOpened />}
-                onClick={() => {
-                  const el = document.getElementById('loginPwd') as HTMLInputElement | null;
-                  const start = el?.selectionStart ?? el?.value.length ?? 0;
-                  const end = el?.selectionEnd ?? el?.value.length ?? 0;
-                  setShowPassword(!showPassword);
-                  setTimeout(() => {
-                    const el2 = document.getElementById('loginPwd') as HTMLInputElement | null;
-                    if (el2) {
-                      el2.focus();
-                      el2.setSelectionRange(start, end);
-                    }
-                  }, 0);
-                }}
-                style={{ padding: '4px' }}
-              />
-            }
-            id="loginPwd"
-            rules={[{ required: true, message: '请输入密码' }]}
-          />
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginTop: '4px',
-              marginBottom: '8px',
-            }}
+        {showInitPassword ? (
+          // 密码初始化界面
+          <StyledForm
+            onSubmit={handleInitPassword}
+            initValues={{ password: '', confirmPassword: '' }}
+            getFormApi={setFormApi}
           >
-            <Form.Checkbox field="remember" noLabel>
-              记住我
-            </Form.Checkbox>
-            <Button
-              theme="borderless"
-              type="primary"
-              onClick={handleResetPwd}
-              className="reset-pwd-link"
-              style={{
-                background: 'transparent',
-                boxShadow: 'none',
-                padding: 0,
-                cursor: resetLoading || resetCooldown > 0 ? 'not-allowed' : 'pointer',
-                opacity: resetLoading || resetCooldown > 0 ? 0.8 : 1,
-              }}
-            >
-              {resetCooldown > 0 ? `重置密码(${resetCooldown}s)` : '重置密码'}
-            </Button>
-          </div>
+            <div style={{ marginBottom: '16px', fontSize: '14px', color: '#5f738c' }}>
+              设置您的登录密码（密码至少6位）
+            </div>
 
-          <LoginButton type="primary" htmlType="submit" loading={loading}>
-            登录
-          </LoginButton>
-        </StyledForm>
+            <PasswordFieldWrapper $hasError={!!passwordError}>
+              <Form.Input
+                field="password"
+                label={
+                  <span>
+                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                    密码
+                  </span>
+                }
+                type="password"
+                mode="password"
+                placeholder={passwordError || '请输入密码（至少6位）'}
+                prefix={<IconLock />}
+                size="large"
+                onFocus={() => setPasswordError('')}
+              />
+            </PasswordFieldWrapper>
 
-        <RoleRow>
-          <GuestGlowButton onClick={guestLogin} size="large">
-            以游客身份登录
-          </GuestGlowButton>
-        </RoleRow>
+            <ConfirmPasswordFieldWrapper $hasError={!!confirmPasswordError}>
+              <Form.Input
+                field="confirmPassword"
+                label={
+                  <span>
+                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                    确认密码
+                  </span>
+                }
+                type="password"
+                mode="password"
+                placeholder={confirmPasswordError || '请再次输入密码'}
+                prefix={<IconLock />}
+                size="large"
+                onFocus={() => setConfirmPasswordError('')}
+              />
+            </ConfirmPasswordFieldWrapper>
+
+            <div style={{ marginTop: '8px' }} />
+
+            <LoginButton type="primary" htmlType="submit" loading={loading}>
+              完成设置
+            </LoginButton>
+
+            <GuestLoginWrapper>
+              <div style={{ flex: 1 }} />
+              <SwitchLoginButton
+                onClick={handleSkipPasswordInit}
+                disabled={loading}
+                type="button"
+              >
+                跳过
+              </SwitchLoginButton>
+            </GuestLoginWrapper>
+          </StyledForm>
+        ) : (
+          // 正常登录界面
+          <StyledForm
+            onSubmit={handleLogin}
+            initValues={{ email: '', code: '', password: '' }}
+            getFormApi={setFormApi}
+          >
+            <EmailFieldWrapper $hasError={!!emailError}>
+              <Form.Input
+                field="email"
+                label={
+                  <span>
+                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                    邮箱
+                  </span>
+                }
+                placeholder={emailError || '请输入邮箱地址'}
+                prefix={<IconMail />}
+                size="large"
+                onFocus={() => setEmailError('')}
+              />
+            </EmailFieldWrapper>
+
+            {loginMode === 'code' ? (
+              <CodeInputWrapper>
+                <CodeFieldWrapper $hasError={!!codeError}>
+                  <Form.Input
+                    field="code"
+                    label={
+                      <span>
+                        <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                        验证码
+                      </span>
+                    }
+                    placeholder={codeError || '请输入验证码'}
+                    size="large"
+                    style={{ flex: 1 }}
+                    onFocus={() => setCodeError('')}
+                  />
+                </CodeFieldWrapper>
+                <Button
+                  className="code-button"
+                  onClick={handleSendCode}
+                  loading={codeSending}
+                  disabled={countdown > 0 || codeSending}
+                >
+                  {codeSending ? '发送中...' : countdown > 0 ? `重新发送(${countdown}s)` : '获取验证码'}
+                </Button>
+              </CodeInputWrapper>
+            ) : (
+              <PasswordFieldWrapper $hasError={!!passwordError}>
+                <Form.Input
+                  field="password"
+                  label={
+                    <span>
+                      <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
+                      密码
+                    </span>
+                  }
+                  type="password"
+                  mode="password"
+                  placeholder={passwordError || '请输入密码（至少6位）'}
+                  prefix={<IconLock />}
+                  size="large"
+                  onFocus={() => setPasswordError('')}
+                />
+              </PasswordFieldWrapper>
+            )}
+
+            <div style={{ marginTop: '8px' }} />
+
+            <LoginButton type="primary" htmlType="submit" loading={loading}>
+              登录
+            </LoginButton>
+
+            <GuestLoginWrapper>
+              <SwitchLoginButton
+                onClick={() => {
+                  setLoginMode(loginMode === 'code' ? 'password' : 'code');
+                  setEmailError('');
+                  setCodeError('');
+                  setPasswordError('');
+                }}
+                disabled={loading || guestLogging}
+                type="button"
+              >
+                {loginMode === 'code' ? '邮箱密码登录' : '邮箱验证码登录'}
+              </SwitchLoginButton>
+              <GuestLoginButton
+                onClick={handleGuestLogin}
+                disabled={guestLogging || loading}
+              >
+                {guestLogging ? '访客登录中...' : '访客登录☞'}
+              </GuestLoginButton>
+            </GuestLoginWrapper>
+          </StyledForm>
+        )}
       </LoginCard>
     </LoginContainer>
   );
