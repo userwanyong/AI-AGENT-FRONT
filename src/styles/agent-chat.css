@@ -1269,9 +1269,10 @@
 }
 
 .sidebar-user-popover {
-  width: 290px; /* 加宽以容纳四个操作同排显示 */
+  width: fit-content;
+  min-width: 200px;
   padding: 12px 8px;
-  cursor: pointer; /* 悬浮框内鼠标为小手型 */
+  cursor: pointer;
   background: linear-gradient(180deg, #eef6ff 0%, #f4f9ff 100%);
   border: 1px solid #cfe6ff;
   border-radius: 12px;
@@ -1288,21 +1289,33 @@
 .sidebar-user-basic {
   display: flex;
   flex-direction: column;
+  min-width: 0; /* 允许子元素收缩 */
+  flex: 1; /* 填充剩余空间 */
 }
 .sidebar-user-name {
   color: #333;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sidebar-user-uid {
   color: #999;
   font-size: 12px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-user-actions {
-  display: flex; /* 单行布局：四个操作同一行 */
+  display: inline-flex;
   flex-direction: row;
-  justify-content: space-between; /* 居中排布，使用 gap 控制固定间距 */
+  justify-content: flex-start;
+  gap: 0;
   align-items: center;
   padding: 5px 0;
+  width: auto;
 }
 
 .user-action-item {

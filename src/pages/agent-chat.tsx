@@ -21,8 +21,6 @@ import {
   IconTick,
   IconSearch,
   IconExit,
-  IconLock,
-  IconUser,
   IconSetting,
   IconDelete,
 } from '@douyinfe/semi-icons';
@@ -1340,41 +1338,17 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                         {userInfo?.username?.[0]?.toUpperCase() || 'U'}
                       </Avatar>
                       <div className="sidebar-user-basic">
-                        <div className="sidebar-user-name">{userInfo?.username || '用户'}</div>
-                        <div className="sidebar-user-uid">
-                          UID：{userInfo?.id ?? userInfo?.userId ?? userInfo?.uid ?? '-'}
-                        </div>
+                        <Tooltip content={userInfo?.username || '用户'} position="top">
+                          <div className="sidebar-user-name">{userInfo?.username || '用户'}</div>
+                        </Tooltip>
+                        <Tooltip content={`UID：${userInfo?.id ?? userInfo?.userId ?? userInfo?.uid ?? '-'}`} position="top">
+                          <div className="sidebar-user-uid">
+                            UID：{userInfo?.id ?? userInfo?.userId ?? userInfo?.uid ?? '-'}
+                          </div>
+                        </Tooltip>
                       </div>
                     </div>
                     <div className="sidebar-user-actions">
-                      <div
-                        className="user-action-item"
-                        onClick={() => {
-                          if (isGuest) {
-                            showGuestLoginToast('info');
-                            return;
-                          }
-                          navigate('/user-info');
-                        }}
-                        style={isGuest ? { cursor: 'not-allowed' } : undefined}
-                      >
-                        <IconUser />
-                        <span>个人中心</span>
-                      </div>
-                      <div
-                        className="user-action-item"
-                        onClick={() => {
-                          if (isGuest) {
-                            showGuestLoginToast('info');
-                            return;
-                          }
-                          navigate('/change-password');
-                        }}
-                        style={isGuest ? { cursor: 'not-allowed' } : undefined}
-                      >
-                        <IconLock />
-                        <span>修改密码</span>
-                      </div>
                       <div
                         className="user-action-item"
                         onClick={() => {
@@ -1384,7 +1358,7 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                           }
                           navigate('/agent-list');
                         }}
-                        style={isGuest ? { cursor: 'not-allowed' } : undefined}
+                        style={!isAdmin ? { cursor: 'not-allowed', opacity: 0.5 } : undefined}
                       >
                         <IconSetting />
                         <span>后台管理</span>
