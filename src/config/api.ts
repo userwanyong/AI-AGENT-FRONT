@@ -120,7 +120,15 @@ export const API_ENDPOINTS = {
     UPDATE_PWD: '/pwd',
     RESET_PWD: '/resetPwd',
     INFO: '/info',
-    
+    // 邮箱登录相关
+    EMAIL_SEND_CODE: '/email/send-code',
+    EMAIL_LOGIN: '/email/login',
+    REFRESH_TOKEN: '/refresh',
+    LOGOUT: '/logout',
+    // 微信小程序登录相关
+    WECHAT_QRCODE_GENERATE: '/wechat-mini-program/qrcode/generate',
+    WECHAT_QRCODE_STATUS: '/wechat-mini-program/qrcode/status',
+    WECHAT_QRCODE_LOGIN: '/wechat-mini-program/qrcode/login',
   },
   FILE: {
     BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/file`,

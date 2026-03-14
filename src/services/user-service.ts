@@ -209,7 +209,7 @@ export class UserService {
    */
   static async sendEmailCode(email: string): Promise<{success: boolean, message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}/email/code`, {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.EMAIL_SEND_CODE}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
         body: stringifySafely({ email }),
@@ -220,12 +220,12 @@ export class UserService {
       }
 
       const result = await parseResponseJsonSafely(response);
-      // 后端返回格式: {code, message, ...}
+      // 后端返回格式: {code, info/msg, ...}
       // code === '0000' 表示成功
       if (result.code === '0000') {
         return { success: true };
       } else {
-        return { success: false, message: result.msg || '发送验证码失败' };
+        return { success: false, message: result.info || result.msg || '发送验证码失败' };
       }
     } catch (error) {
       console.error('发送验证码请求失败:', error);
@@ -234,14 +234,14 @@ export class UserService {
   }
 
   /**
-   * 邮箱验证码登录
+   * 邮箱验证码登录（自动注册）
    * @param email 邮箱地址
    * @param code 验证码
-   * @returns Promise<{success: boolean, data?: any, message?: string}>
+   * @returns Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}>
    */
-  static async loginByEmail(email: string, code: string): Promise<{success: boolean, data?: any, message?: string}> {
+  static async loginByEmail(email: string, code: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}/email/login`, {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.EMAIL_LOGIN}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
         body: stringifySafely({ email, code }),
@@ -255,7 +255,7 @@ export class UserService {
       if (result.code === '0000') {
         return { success: true, data: result.data };
       } else {
-        return { success: false, message: result.msg || '登录失败' };
+        return { success: false, message: result.info || result.msg || '登录失败' };
       }
     } catch (error) {
       console.error('邮箱登录请求失败:', error);
@@ -267,9 +267,9 @@ export class UserService {
    * 邮箱密码登录
    * @param email 邮箱地址
    * @param password 密码
-   * @returns Promise<{success: boolean, data?: any, message?: string}>
+   * @returns Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}>
    */
-  static async loginByEmailPassword(email: string, password: string): Promise<{success: boolean, data?: any, message?: string}> {
+  static async loginByEmailPassword(email: string, password: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
     try {
       const response = await fetch(`${this.BASE_URL}/email/pwd/login`, {
         method: 'POST',
@@ -285,7 +285,7 @@ export class UserService {
       if (result.code === '0000') {
         return { success: true, data: result.data };
       } else {
-        return { success: false, message: result.msg || '登录失败' };
+        return { success: false, message: result.info || result.msg || '登录失败' };
       }
     } catch (error) {
       console.error('邮箱密码登录请求失败:', error);
@@ -354,6 +354,147 @@ export class UserService {
       return { success: false, message: '登录失败,请检查网络连接' };
     }
   }
+
+  /**
+   * 生成微信小程序登录二维码
+   * @returns Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}>
+   */
+  static async generateWechatMiniProgramQrCode(): Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.WECHAT_QRCODE_GENERATE}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.info || result.msg || '生成二维码失败' };
+      }
+    } catch (error) {
+      console.error('生成微信二维码请求失败:', error);
+      return { success: false, message: '生成二维码失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 查询微信小程序登录二维码状态
+   * @param qrcodeId 二维码ID
+   * @returns Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}>
+   */
+  static async queryWechatMiniProgramQrCodeStatus(qrcodeId: string): Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.WECHAT_QRCODE_STATUS}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ qrcodeId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.info || result.msg || '查询状态失败' };
+      }
+    } catch (error) {
+      console.error('查询二维码状态请求失败:', error);
+      return { success: false, message: '查询状态失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 微信小程序二维码登录
+   * @param ticket 登录票据
+   * @returns Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}>
+   */
+  static async loginByWechatMiniProgramQrCode(ticket: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.WECHAT_QRCODE_LOGIN}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ ticket }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.info || result.msg || '登录失败' };
+      }
+    } catch (error) {
+      console.error('微信登录请求失败:', error);
+      return { success: false, message: '登录失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 刷新Token
+   * @param refreshToken 刷新令牌
+   * @returns Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}>
+   */
+  static async refreshToken(refreshToken: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.REFRESH_TOKEN}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.info || result.msg || '刷新Token失败' };
+      }
+    } catch (error) {
+      console.error('刷新Token请求失败:', error);
+      return { success: false, message: '刷新Token失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 登出
+   * @returns Promise<{success: boolean, message?: string}>
+   */
+  static async logout(): Promise<{success: boolean, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.LOGOUT}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true };
+      } else {
+        return { success: false, message: result.info || result.msg || '登出失败' };
+      }
+    } catch (error) {
+      console.error('登出请求失败:', error);
+      return { success: false, message: '登出失败,请检查网络连接' };
+    }
+  }
 }
 
 // DTO 类型声明
@@ -399,4 +540,46 @@ export interface EmailLoginResponseDTO {
 export interface AdminUserLoginRequestDTO {
   username: string;
   password: string;
+}
+
+// 定义用户登录响应数据类型
+export interface UserLoginResponseDTO {
+  id: number | string;
+  username: string;
+  status: number; // 0-正常 1-禁用
+  role: number; // 0-管理员 1-用户
+  avatar?: string;
+  createTime: string;
+  updateTime: string;
+  token: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  isFirst: boolean; // 是否首次登录
+}
+
+// 定义微信小程序二维码响应数据类型
+export interface WechatMiniProgramQrCodeResponseDTO {
+  qrcodeId: string;       // 二维码ID
+  qrCodeUrl: string;      // 二维码图片URL
+  customLogoUrl?: string; // 自定义Logo URL
+  status: string;         // 状态: WAITING-等待扫码, SCANNED-已扫码待确认, CONFIRMED-已确认, EXPIRED-已过期, CANCELLED-已取消
+  ticket?: string;        // 登录票据（确认后才有）
+  displayName?: string;   // 用户昵称（扫码后显示）
+  photo?: string;         // 用户头像（扫码后显示）
+}
+
+// 定义微信小程序二维码状态查询请求类型
+export interface WechatMiniProgramQrCodeStatusRequestDTO {
+  qrcodeId: string;
+}
+
+// 定义微信小程序二维码登录请求类型
+export interface WechatMiniProgramQrCodeLoginRequestDTO {
+  ticket: string;
+}
+
+// 定义刷新Token请求类型
+export interface RefreshTokenRequestDTO {
+  refreshToken: string;
 }
