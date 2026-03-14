@@ -13,7 +13,9 @@ export const API_CONFIG = {
   // 基础域名配置
   BASE_DOMAIN: (() => {
     if (isDevelopment) {
-      return 'http://127.0.0.1:8071';
+      // 开发环境使用空字符串，通过 rsbuild dev server 代理转发请求
+      // 代理配置见 rsbuild.config.ts 中的 server.proxy
+      return '';
     }
     // 生产环境强制使用当前域名，走 EdgeOne 的同域代理
     if (typeof window !== 'undefined') {
