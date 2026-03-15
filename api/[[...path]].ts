@@ -1,17 +1,15 @@
-export const config = { runtime: 'edge' };
-
-export default async function handler(request: Request): Promise<Response> {
+export default async function handler(req: Request): Promise<Response> {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8071';
-  const url = new URL(request.url);
+  const url = new URL(req.url);
 
   // 构建后端请求 URL
   const targetUrl = `${backendUrl}${url.pathname}${url.search}`;
 
   try {
     const response = await fetch(targetUrl, {
-      method: request.method,
-      headers: request.headers,
-      body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+      method: req.method,
+      headers: req.headers,
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
       redirect: 'manual',
     });
 
