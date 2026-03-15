@@ -13,7 +13,9 @@ export const API_CONFIG = {
   // 基础域名配置
   BASE_DOMAIN: (() => {
     if (isDevelopment) {
-      return 'http://127.0.0.1:8071';
+      // 开发环境使用空字符串，通过 rsbuild dev server 代理转发请求
+      // 代理配置见 rsbuild.config.ts 中的 server.proxy
+      return '';
     }
     // 生产环境强制使用当前域名，走 EdgeOne 的同域代理
     if (typeof window !== 'undefined') {
@@ -120,7 +122,15 @@ export const API_ENDPOINTS = {
     UPDATE_PWD: '/pwd',
     RESET_PWD: '/resetPwd',
     INFO: '/info',
-    
+    // 邮箱登录相关
+    EMAIL_SEND_CODE: '/email/send-code',
+    EMAIL_LOGIN: '/email/login',
+    REFRESH_TOKEN: '/refresh',
+    LOGOUT: '/logout',
+    // 微信小程序登录相关
+    WECHAT_QRCODE_GENERATE: '/wechat-mini-program/qrcode/generate',
+    WECHAT_QRCODE_STATUS: '/wechat-mini-program/qrcode/status',
+    WECHAT_QRCODE_LOGIN: '/wechat-mini-program/qrcode/login',
   },
   FILE: {
     BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/file`,

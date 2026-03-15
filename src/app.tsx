@@ -16,8 +16,6 @@ import {
   PromptManagement,
   McpManagement,
   AgentChatPage,
-  ChangePasswordPage,
-  UserInfoPage,
 } from './pages';
 
 // 统一的认证检查函数
@@ -54,10 +52,105 @@ console.error = (...args) => {
   originalConsoleError(...args);
 };
 
-// 全局拦截 fetch：返回码为 0004 时提示“权限不足”
+// Token 刷新状态管理
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+// 清除登录状态并跳转登录页
+const clearAuthAndRedirect = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('userInfo');
+  localStorage.removeItem('isLoggedIn');
+  Toast.warning('登录已过期，请重新登录');
+  window.location.href = '/login';
+};
+
+// 刷新 Token
+const refreshAccessToken = async (): Promise<boolean> => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    clearAuthAndRedirect();
+    return false;
+  }
+
+  try {
+    const response = await fetch('/api/v1/user/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      clearAuthAndRedirect();
+      return false;
+    }
+
+    const data = await response.json();
+    if (data && data.data && data.data.token) {
+      localStorage.setItem('token', data.data.token);
+      // 如果返回了新的 refreshToken，也更新它
+      if (data.data.refreshToken) {
+        localStorage.setItem('refreshToken', data.data.refreshToken);
+      }
+      return true;
+    }
+
+    clearAuthAndRedirect();
+    return false;
+  } catch {
+    clearAuthAndRedirect();
+    return false;
+  }
+};
+
+// 全局拦截 fetch：处理 401 和权限不足
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (...args) => {
   const response = await originalFetch(...(args as Parameters<typeof fetch>));
+
+  // 处理 401 Token 过期
+  if (response.status === 401) {
+    // 排除刷新接口本身，避免循环调用
+    const requestUrl = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url;
+    if (requestUrl.includes('/user/refresh')) {
+      clearAuthAndRedirect();
+      return response;
+    }
+
+    // 防止多个请求同时刷新 token
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = refreshAccessToken().finally(() => {
+        isRefreshing = false;
+      });
+    }
+
+    const refreshed = await refreshPromise;
+    if (refreshed) {
+      // 使用新 token 重试原请求
+      const newToken = localStorage.getItem('token');
+      const [input, init] = args;
+
+      const newHeaders = new Headers((init as RequestInit)?.headers || {});
+      if (newToken) {
+        newHeaders.set('Authorization', newToken);
+      }
+
+      const newInit: RequestInit = {
+        ...(init as RequestInit),
+        headers: newHeaders,
+      };
+
+      return originalFetch(input, newInit);
+    }
+
+    return response;
+  }
+
+  // 处理业务错误码 0004 权限不足
   try {
     const cloned = response.clone();
     const contentType = cloned.headers.get('content-type') || '';
@@ -67,7 +160,7 @@ window.fetch = async (...args) => {
         Toast.warning('权限不足');
       }
     }
-  } catch (e) {
+  } catch {
     // 忽略非JSON或解析失败的情况，保持原始响应
   }
   return response;
@@ -156,22 +249,6 @@ const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <McpManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/user-info"
-          element={
-            <ProtectedRoute>
-              <UserInfoPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/change-password"
-          element={
-            <ProtectedRoute>
-              <ChangePasswordPage />
             </ProtectedRoute>
           }
         />
