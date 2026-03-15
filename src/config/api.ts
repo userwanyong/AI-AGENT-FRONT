@@ -17,7 +17,13 @@ export const API_CONFIG = {
       // 代理配置见 rsbuild.config.ts 中的 server.proxy
       return '';
     }
-    // 生产环境强制使用当前域名，走 EdgeOne 的同域代理
+    // 生产环境优先使用环境变量 VITE_API_BASE_URL
+    // 在 Vercel Dashboard -> Settings -> Environment Variables 中配置
+    const envApiBaseUrl = typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_API_BASE_URL : undefined;
+    if (envApiBaseUrl) {
+      return envApiBaseUrl;
+    }
+    // 兜底：使用当前域名
     if (typeof window !== 'undefined') {
       return window.location.origin;
     }
