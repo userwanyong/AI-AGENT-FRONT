@@ -286,41 +286,8 @@ const LoginButton = styled(Button)`
 const GuestLoginWrapper = styled.div`
   margin-top: ${theme.spacing.base};
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-`;
-
-const GuestLoginButton = styled.button`
-  background: transparent !important;
-  border: none !important;
-  color: #75ad80 !important;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px 8px;
-  transition: all 0.3s ease;
-  font-weight: 500;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-
-  &:hover:not(:disabled) {
-    color: #5a9a66 !important;
-    text-decoration: underline;
-  }
-
-  &:active:not(:disabled) {
-    color: #4a8656 !important;
-  }
-
-  &:disabled {
-    color: #d9d9d9 !important;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: ${theme.breakpoints.sm}) {
-    font-size: 12px;
-  }
 `;
 
 const SwitchLoginButton = styled.button`
@@ -438,6 +405,17 @@ const LoginTab = styled.button<{ $active: boolean }>`
   }
 `;
 
+// 推荐标识
+const RecommendTag = styled.span`
+  background: #FF6B00;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  margin-left: 4px;
+`;
+
 // 微信二维码容器
 const WechatQrCodeWrapper = styled.div`
   display: flex;
@@ -487,6 +465,40 @@ const QrCodeStatusText = styled.div`
   text-align: center;
 `;
 
+const GithubLink = styled.a`
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
+
+  &:hover {
+    color: #fff;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  @media (max-width: ${theme.breakpoints.sm}) {
+    top: 16px;
+    right: 16px;
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+`;
+
 const ScannedUserInfo = styled.div`
   display: flex;
   flex-direction: column;
@@ -523,14 +535,13 @@ const LoginPage: React.FC = () => {
   const [emailError, setEmailError] = useState('');
   const [codeError, setCodeError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [guestLogging, setGuestLogging] = useState(false);
   const [loginMode, setLoginMode] = useState<'code' | 'password'>('code'); // 登录方式: 验证码或密码
   const [showInitPassword, setShowInitPassword] = useState(false); // 是否显示密码创建界面
   const [initPasswordEmail, setInitPasswordEmail] = useState(''); // 首次登录的邮箱
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
   // 微信二维码登录相关状态
-  const [authType, setAuthType] = useState<'email' | 'wechat'>('email'); // 登录类型
+  const [authType, setAuthType] = useState<'email' | 'wechat'>('wechat'); // 登录类型
   const [qrCodeData, setQrCodeData] = useState<WechatMiniProgramQrCodeResponseDTO | null>(null);
   const [qrCodeLoading, setQrCodeLoading] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
@@ -942,44 +953,6 @@ const LoginPage: React.FC = () => {
     });
   };
 
-  const handleGuestLogin = async () => {
-    setGuestLogging(true);
-    try {
-      const result = await UserService.validateAdminUserLogin({
-        username: 'tourist',
-        password: '123456'
-      });
-
-      if (result.success && result.data) {
-        const raw = result.data;
-        const normalized = {
-          id: raw.id,
-          username: raw.username,
-          email: raw.email || '',
-          role: raw.role,
-          avatar: raw.avatar,
-          status: raw.status,
-          createTime: raw.createTime,
-          updateTime: raw.updateTime,
-        };
-
-        // 保存 token
-        localStorage.setItem('token', raw.token);
-        localStorage.setItem('userInfo', JSON.stringify(normalized));
-        localStorage.setItem('isLoggedIn', 'true');
-        Toast.success('访客登录成功！');
-        navigate('/agent-chat');
-      } else {
-        Toast.error(result.message || '访客登录失败，请稍后重试');
-      }
-    } catch (error) {
-      console.error('访客登录失败:', error);
-      Toast.error('访客登录失败，请检查网络连接或稍后重试');
-    } finally {
-      setGuestLogging(false);
-    }
-  };
-
   return (
     <LoginContainer>
       <LoginCard>
@@ -1064,7 +1037,6 @@ const LoginPage: React.FC = () => {
             </LoginButton>
 
             <GuestLoginWrapper>
-              <div style={{ flex: 1 }} />
               <SwitchLoginButton
                 onClick={handleSkipPasswordInit}
                 disabled={loading}
@@ -1080,20 +1052,21 @@ const LoginPage: React.FC = () => {
             {/* 登录方式切换标签 */}
             <LoginTabs>
               <LoginTab
-                $active={authType === 'email'}
-                onClick={() => setAuthType('email')}
-                type="button"
-              >
-                <IconMail size={16} />
-                邮箱登录
-              </LoginTab>
-              <LoginTab
                 $active={authType === 'wechat'}
                 onClick={() => setAuthType('wechat')}
                 type="button"
               >
                 <IconQrCode size={16} />
                 微信登录
+                <RecommendTag>推荐</RecommendTag>
+              </LoginTab>
+              <LoginTab
+                $active={authType === 'email'}
+                onClick={() => setAuthType('email')}
+                type="button"
+              >
+                <IconMail size={16} />
+                邮箱登录
               </LoginTab>
             </LoginTabs>
 
@@ -1246,32 +1219,22 @@ const LoginPage: React.FC = () => {
                 <LoginButton type="primary" htmlType="submit" loading={loading}>
                   登录
                 </LoginButton>
-
-                <GuestLoginWrapper>
-                  <SwitchLoginButton
-                    onClick={() => {
-                      setLoginMode(loginMode === 'code' ? 'password' : 'code');
-                      setEmailError('');
-                      setCodeError('');
-                      setPasswordError('');
-                    }}
-                    disabled={loading || guestLogging}
-                    type="button"
-                  >
-                    {loginMode === 'code' ? '邮箱密码登录' : '邮箱验证码登录'}
-                  </SwitchLoginButton>
-                  <GuestLoginButton
-                    onClick={handleGuestLogin}
-                    disabled={guestLogging || loading}
-                  >
-                    {guestLogging ? '访客登录中...' : '访客登录☞'}
-                  </GuestLoginButton>
-                </GuestLoginWrapper>
               </StyledForm>
             )}
           </>
         )}
       </LoginCard>
+
+      <GithubLink
+        href="https://github.com/userwanyong/AI-AGENT-FRONT"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        GitHub
+      </GithubLink>
     </LoginContainer>
   );
 };
