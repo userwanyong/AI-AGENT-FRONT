@@ -52,6 +52,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/styled-components": "^5.1.35",
+    "@vercel/node": "^5.6.15",
     "cross-env": "~7.0.3",
     "eslint": "^8.54.0"
   },
