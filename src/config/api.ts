@@ -17,7 +17,7 @@ export const API_CONFIG = {
       // 代理配置见 rsbuild.config.ts 中的 server.proxy
       return '';
     }
-    // 生产环境强制使用当前域名，走 EdgeOne 的同域代理
+    // 生产环境使用当前域名，通过 Vercel Rewrites 代理到后端
     if (typeof window !== 'undefined') {
       return window.location.origin;
     }
