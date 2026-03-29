@@ -227,7 +227,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // 添加处理导航的函数
   const handleNavigation = (key: string) => {
     if (key === 'experience') {
-      window.open('/agent-chat', '_blank');
+      window.open('/', '_blank');
     } else {
       onSelect?.(key);
     }

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 import { marked } from 'marked';
@@ -28,7 +28,7 @@ import {
 import { DrawioViewer } from '../components/DrawioViewer';
 
 import '../styles/agent-chat.css';
-import { AiAgentService, UserService, AdminUserService } from '../services';
+import { AiAgentService, UserService, AdminUserService, ConversationResponseDTO, MessagePageResponseDTO, MessageItemDTO } from '../services';
 import { AgentResponseDTO } from '../services/admin-user-service';
 
 // SVG 图标组件（遵循 frontend-design no-emoji 规则）
@@ -134,7 +134,11 @@ interface ChatHistory {
   title: string;
   messages: ChatMessage[];
   agentId: string;
+  agentName?: string;
   maxStep: string;
+  messageCount?: number;
+  lastMessageAt?: string;
+  createTime?: string;
   timestamp?: number;
 }
 
@@ -147,6 +151,7 @@ interface StageMessage {
 // 主组件
 export const AgentChatPage: React.FC = () => {
   const navigate = useNavigate();
+  const { sessionId: urlSessionId } = useParams<{ sessionId?: string }>();
   const { themeMode: currentTheme, resolvedTheme, cycleTheme } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -170,6 +175,12 @@ export const AgentChatPage: React.FC = () => {
   const [agentList, setAgentList] = useState<AgentResponseDTO[]>([]);
   // 首次加载/新建对话时顶部提示文案
   const [showIntroTip, setShowIntroTip] = useState(false);
+  // 消息分页状态
+  const [messageCursor, setMessageCursor] = useState<number | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  // 会话标题编辑状态
+  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const thinkingPanelRef = useRef<HTMLDivElement>(null);
   const resultPanelRef = useRef<HTMLDivElement>(null);
@@ -415,14 +426,53 @@ export const AgentChatPage: React.FC = () => {
 
     // 加载聊天历史
     loadChatHistory();
-    setIsNewChat(true);
-    setShowIntroTip(true);
-    setSessionId(generateSessionId());
+
+    // 根据 URL 判断：有 sessionId 则加载对应会话，否则新建
+    if (urlSessionId) {
+      setSessionId(urlSessionId);
+      loadSessionChat(urlSessionId);
+    } else {
+      setIsNewChat(true);
+      setShowIntroTip(true);
+      setSessionId(generateSessionId());
+    }
 
     return () => {
       document.removeEventListener('click', clickHandler);
     };
   }, []);
+
+  // 响应 URL 中的 sessionId 变化（用户点击侧边栏历史项或浏览器前进/后退）
+  useEffect(() => {
+    if (!urlSessionId) return;
+    // 跳过初始化阶段（已由 init useEffect 处理）
+    if (urlSessionId === sessionId) return;
+
+    // 切换会话，历史尚未渲染
+    setHistoryRendered(false);
+    setIsNewChat(false);
+
+    // 清空思考和结果面板
+    setInput('');
+    setThinkingMessages([]);
+    setResultMessages([]);
+    setActiveTab('thinking');
+
+    // 从历史列表中查找对应会话信息
+    const chat = chatHistories.find((h) => h.id === urlSessionId);
+    if (chat) {
+      const strategy = agentList.find((a) => a.id === chat.agentId)?.strategy;
+      setSideBySideMode(strategy !== 'commonExecuteStrategy');
+      if (strategy === 'commonExecuteStrategy') {
+        setShowResultPanel(false);
+      }
+      setSelectedAgentId(chat.agentId);
+      setSelectedMaxStep(chat.maxStep);
+    }
+
+    setSessionId(urlSessionId);
+    loadSessionChat(urlSessionId);
+  }, [urlSessionId]);
 
   // 当智能体列表或历史记录/会话变化时，确保选中当前会话对应的智能体
   useEffect(() => {
@@ -441,39 +491,22 @@ export const AgentChatPage: React.FC = () => {
   // 加载聊天历史
   const loadChatHistory = async () => {
     try {
-      // 从后端API获取历史记录
-      const historyList = await UserService.getUserHistory();
+      // 从后端API获取历史记录（后端返回结构化 ConversationResponseDTO[]）
+      const historyList: ConversationResponseDTO[] = await UserService.getUserHistory();
 
       if (historyList && historyList.length > 0) {
-        const formattedHistories = historyList.map((item) => {
-          // 去除包裹引号并反转义
-          const line = decodeEscapedText(item);
-          let sid = generateSessionId();
-          let titleText = line.trim();
-          let aid = selectedAgentId;
-          if (line.includes(':')) {
-            const colon = line.indexOf(':');
-            sid = line.substring(0, colon).trim();
-            const underscore = line.indexOf('_', colon + 1);
-            const between =
-              underscore >= 0 ? line.substring(colon + 1, underscore) : line.substring(colon + 1);
-            titleText = between.trim();
-            if (underscore >= 0) {
-              aid = line.substring(underscore + 1).trim();
-            }
-          }
-          const title = titleText
-            ? titleText.substring(0, 30) + (titleText.length > 30 ? '...' : '')
-            : '未命名对话';
-          return {
-            id: sid,
-            title,
-            messages: [], // 初始为空，点击时再加载
-            agentId: aid || '',
-            maxStep: selectedMaxStep,
-            // timestamp: Date.now()
-          };
-        });
+        const formattedHistories: ChatHistory[] = historyList.map((conv) => ({
+          id: conv.sessionId,
+          title: conv.title || '未命名对话',
+          messages: [],
+          agentId: String(conv.agentId),
+          agentName: conv.agentName,
+          maxStep: selectedMaxStep,
+          messageCount: conv.messageCount,
+          lastMessageAt: conv.lastMessageAt,
+          createTime: conv.createTime,
+          timestamp: conv.updateTime ? new Date(conv.updateTime).getTime() : undefined,
+        }));
 
         setChatHistories(formattedHistories);
       } else {
@@ -481,172 +514,44 @@ export const AgentChatPage: React.FC = () => {
       }
     } catch (error) {
       console.error('加载聊天历史失败:', error);
-      // 如果API调用失败，尝试从本地存储加载
-      const history = localStorage.getItem('chatHistory');
-      if (history) {
-        setChatHistories(JSON.parse(history));
-      }
     }
   };
 
-  // 提取字符串中第一个冒号与其后第一个下划线之间的内容
-  const extractBetweenColonAndUnderscore = (s: string) => {
-    if (typeof s !== 'string') return '';
-    const colon = s.indexOf(':');
-    if (colon < 0) return s.trim();
-    const underscore = s.indexOf('_', colon + 1);
-    if (underscore < 0) return s.substring(colon + 1).trim();
-    return s.substring(colon + 1, underscore).trim();
-  };
-
-  // 反转义并去除包裹引号，返回安全文本
-  const decodeEscapedText = (raw: unknown) => {
-    if (typeof raw !== 'string') return String(raw ?? '');
-    let t = raw;
+  // 加载特定会话的聊天记录（使用分页消息接口）
+  const loadSessionChat = async (sid: string) => {
     try {
-      if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
-        t = JSON.parse(t);
-      }
-    } catch {}
-    t = t.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r');
-    return t;
-  };
+      // 使用分页消息接口获取会话消息
+      const pageData = await UserService.getPaginatedMessages(sid, undefined, 50);
 
-  // 加载特定会话的聊天记录
-  const loadSessionChat = async (sessionId: string) => {
-    try {
-      // 从后端API获取特定会话的聊天记录
-      const sessionMessages = await UserService.getUserSession(sessionId);
-
-      if (sessionMessages && sessionMessages.length > 0) {
+      if (pageData && pageData.messages && pageData.messages.length > 0) {
         const formattedMessages: ChatMessage[] = [];
 
-        // 统一反转义工具
-        const decode = (t: any) => {
-          let s = typeof t === 'string' ? t : String(t ?? '');
-          try {
-            if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-              s = JSON.parse(s);
-            }
-          } catch {}
-          return s.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r');
-        };
-
-        // 适配 Spring Message 对象
-        const normalizeSpringMessage = (obj: any): ChatMessage => {
-          const rawType = (obj?.messageType || obj?.role || obj?.type || '')
-            .toString()
-            .toUpperCase();
-          const role: 'user' | 'ai' = rawType === 'USER' ? 'user' : 'ai';
-          let content: any = obj?.content;
-          // 优先读取顶层 text 字段（Spring AI 常见结构）
-          if (content == null && typeof obj?.text !== 'undefined') {
-            content = obj.text;
-          }
-          // 常见 Content 结构兼容
-          if (content && typeof content !== 'string') {
-            if (typeof content.content === 'string') content = content.content;
-            else if (typeof content.text === 'string') content = content.text;
-            else if (Array.isArray(content))
-              content = content
-                .map((c: any) => (typeof c === 'string' ? c : c?.text || c?.content || ''))
-                .join('\n');
-          }
-          const text = decode(content ?? JSON.stringify(obj));
-          const type = obj?.metadata?.type ?? obj?.type;
-          const subType = obj?.metadata?.subType ?? obj?.subType;
-          return { role, content: text, timestamp: Date.now(), type, subType };
-        };
-
-        // 解析消息格式（兼容字符串与对象）
-        sessionMessages.forEach((msg) => {
-          if (typeof msg === 'string') {
-            if (msg.startsWith('USER:')) {
-              const rawUser = extractBetweenColonAndUnderscore(msg);
-              formattedMessages.push({
-                role: 'user',
-                content: decodeEscapedText(rawUser),
-                timestamp: Date.now(),
-              });
-            } else if (msg.startsWith('AI:')) {
-              // 解析AI消息，优先处理JSON；兼容部分前缀字符（如"/")
-              try {
-                let content = msg.substring(3).trim();
-                if (content.startsWith('/')) content = content.substring(1).trim();
-                const jsonStart = content.indexOf('{');
-                if (jsonStart >= 0) {
-                  try {
-                    const jsonObj = JSON.parse(content.substring(jsonStart));
-                    const hasContentField =
-                      Object.prototype.hasOwnProperty.call(jsonObj, 'content') &&
-                      jsonObj.content !== undefined;
-                    const raw = hasContentField
-                      ? jsonObj.content
-                      : typeof jsonObj.text !== 'undefined'
-                      ? jsonObj.text
-                      : '';
-                    const decoded = decode(raw);
-                    const metaType = jsonObj?.metadata?.type ?? jsonObj?.type;
-                    const metaSubType = jsonObj?.metadata?.subType ?? jsonObj?.subType;
-                    if (hasContentField || typeof jsonObj.text !== 'undefined') {
-                      formattedMessages.push({
-                        role: 'ai',
-                        content: decoded,
-                        type: metaType,
-                        subType: metaSubType,
-                        timestamp: Date.now(),
-                      });
-                    } else {
-                      formattedMessages.push({
-                        role: 'ai',
-                        type: metaType,
-                        subType: metaSubType,
-                        content: JSON.stringify(jsonObj, null, 2),
-                        timestamp: Date.now(),
-                      });
-                    }
-                  } catch (jsonError) {
-                    console.error('JSON解析失败:', jsonError);
-                    const t = decode(content);
-                    formattedMessages.push({ role: 'ai', content: t, timestamp: Date.now() });
-                  }
-                } else {
-                  const t = decode(content);
-                  formattedMessages.push({ role: 'ai', content: t, timestamp: Date.now() });
-                }
-              } catch (e) {
-                console.error('解析AI消息失败:', e);
-                let t = msg.substring(3).trim();
-                if (t.startsWith('/')) t = t.substring(1).trim();
-                formattedMessages.push({ role: 'ai', content: decode(t), timestamp: Date.now() });
-              }
-            } else {
-              // 没有前缀：按用户消息处理
-              formattedMessages.push({ role: 'user', content: msg, timestamp: Date.now() });
-            }
-          } else if (msg && typeof msg === 'object') {
-            // Spring Message 对象
-            try {
-              formattedMessages.push(normalizeSpringMessage(msg));
-            } catch (e) {
-              console.error('解析 Spring Message 失败:', e, msg);
-            }
-          } else {
-            console.warn('未知消息类型，丢弃:', msg);
-          }
+        // 将 MessageItemDTO 转换为 ChatMessage
+        // 后端返回的消息已按时间正序排列
+        pageData.messages.forEach((msg: MessageItemDTO) => {
+          const role: 'user' | 'ai' = msg.role === 'user' ? 'user' : 'ai';
+          const content = msg.content || '';
+          formattedMessages.push({
+            role,
+            content,
+            timestamp: msg.createTime ? new Date(msg.createTime).getTime() : Date.now(),
+          });
         });
 
+        // 更新分页状态
+        setMessageCursor(pageData.nextCursor);
+        setHasMoreMessages(pageData.hasMore);
+
         // 更新当前会话ID和消息
-        setSessionId(sessionId);
+        setSessionId(sid);
         setMessages(formattedMessages);
+
         // 将加载的历史消息分别添加到两个面板，按策略区分
-        // 优先使用会话对应的 agentId，避免刚切换时 selectedAgentId 还未更新
         const strategyAgentId =
-          chatHistories.find((h) => h.id === sessionId)?.agentId || selectedAgentId;
+          chatHistories.find((h) => h.id === sid)?.agentId || selectedAgentId;
         const currentStrategy = agentList.find((a) => a.id === strategyAgentId)?.strategy;
         formattedMessages.forEach((msg) => {
           if (currentStrategy === 'commonExecuteStrategy') {
-            // commonExecuteStrategy：所有用户/AI历史只写入左侧思考面板
             if (msg.role === 'user') {
               addMessage(msg.content);
             } else {
@@ -656,9 +561,7 @@ export const AgentChatPage: React.FC = () => {
               );
             }
           } else {
-            // 非 commonExecuteStrategy：保持原有逻辑（用户写入两面板，AI summary 写右侧，其余写左侧）
             if (msg.role === 'user') {
-              // 强制写入两面板，避免 setSessionId 的异步导致策略误判
               addMessage(msg.content, true);
             } else if (msg.type === 'summary') {
               addAIMessage(
@@ -673,26 +576,25 @@ export const AgentChatPage: React.FC = () => {
             }
           }
         });
+
         // 更新历史记录中的消息
         const updatedHistories = chatHistories.map((h) => {
-          if (h.id === sessionId) {
+          if (h.id === sid) {
             return { ...h, messages: formattedMessages };
           }
           return h;
         });
 
         setChatHistories(updatedHistories);
-        // 历史消息更新完成，标记渲染完成
         setHistoryRendered(true);
       }
-      // 历史记录为空：也标记渲染完成以取消“加载中”提示
-      if (!sessionMessages || sessionMessages.length === 0) {
+      // 消息为空也标记渲染完成
+      if (!pageData || !pageData.messages || pageData.messages.length === 0) {
         setHistoryRendered(true);
       }
     } catch (error) {
       console.error('加载会话聊天记录失败:', error);
       Toast.error('加载会话聊天记录失败');
-      // 即使失败也标记为完成以允许占位提示显示
       setHistoryRendered(true);
     }
   };
@@ -759,9 +661,8 @@ export const AgentChatPage: React.FC = () => {
       Toast.info('任务执行中，无法新建会话');
       return;
     }
-    // 生成新的会话ID
-    const newSessionId = generateSessionId();
-    setSessionId(newSessionId);
+    // 导航到根路径（新建对话）
+    navigate('/');
 
     // 清空消息和面板
     setInput('');
@@ -792,34 +693,8 @@ export const AgentChatPage: React.FC = () => {
       Toast.info('任务执行中，无法切换会话');
       return;
     }
-    // 切换会话，历史尚未渲染
-    setHistoryRendered(false);
-    setIsNewChat(true);
-
-    if (chat.id !== currentSession) {
-      // 不是新聊天
-      setIsNewChat(false);
-    }
-
-    // 清空思考和结果面板
-    setInput('');
-    setThinkingMessages([]);
-    setResultMessages([]);
-    // 根据智能体策略决定是否启用双面板
-    const strategy = agentList.find((a) => a.id === chat.agentId)?.strategy;
-    setSideBySideMode(strategy !== 'commonExecuteStrategy');
-    if (strategy === 'commonExecuteStrategy') {
-      // 强制关闭右侧结果面板
-      setShowResultPanel(false);
-    }
-    setActiveTab('thinking'); // 切换到思考Tab
-
-    // 先设置当前智能体为历史项解析出的 agentId，再加载会话详情
-    setSelectedAgentId(chat.agentId);
-    // 直接设置当前会话ID为历史会话ID，而不是创建新会话
-    setSessionId(chat.id);
-    loadSessionChat(chat.id);
-    setSelectedMaxStep(chat.maxStep);
+    // 通过 URL 导航切换会话
+    navigate(`/c/${chat.id}`);
   };
 
   // 发送消息
@@ -836,13 +711,14 @@ export const AgentChatPage: React.FC = () => {
       setShowAgentDropdown(true);
       return;
     }
-    // 首次发送后切换到正常界面
+    // 首次发送后切换到正常界面，并更新 URL
     if (isNewChat) {
       setIsNewChat(false);
-      // 首次会话不需要等待历史渲染，避免一直显示“加载中”
       if (!historyRendered) {
         setHistoryRendered(true);
       }
+      // 首次发送时导航到 /c/:sessionId，replace 避免回退到空白页
+      navigate(`/c/${sessionId}`, { replace: true });
     }
 
     const userMessage: ChatMessage = {
@@ -1163,6 +1039,7 @@ export const AgentChatPage: React.FC = () => {
   // 渲染聊天历史项
   const renderChatHistoryItem = (chat: ChatHistory) => {
     const isActive = chat.id === sessionId;
+    const isEditing = editingHistoryId === chat.id;
     return (
       <div
         className={`chat-history-item ${isActive ? 'active' : ''}`}
@@ -1172,7 +1049,6 @@ export const AgentChatPage: React.FC = () => {
             Toast.info('任务执行中，无法切换会话');
             return;
           }
-          // 若点击的是当前会话，则不进行加载
           if (chat.id === sessionId) {
             return;
           }
@@ -1180,7 +1056,67 @@ export const AgentChatPage: React.FC = () => {
         }}
         style={loading ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}
       >
-        <div className="chat-history-title">{chat.title || '未命名对话'}</div>
+        <div className="chat-history-info">
+          {isEditing ? (
+            <input
+              className="chat-history-title-input"
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const newTitle = editingTitle.trim();
+                  if (newTitle && newTitle !== chat.title) {
+                    const ok = await UserService.updateConversationTitle(chat.id, newTitle);
+                    if (ok) {
+                      setChatHistories((prev) =>
+                        prev.map((h) => (h.id === chat.id ? { ...h, title: newTitle } : h))
+                      );
+                      Toast.success('标题已更新');
+                    }
+                  }
+                  setEditingHistoryId(null);
+                } else if (e.key === 'Escape') {
+                  setEditingHistoryId(null);
+                }
+              }}
+              onBlur={async () => {
+                const newTitle = editingTitle.trim();
+                if (newTitle && newTitle !== chat.title) {
+                  const ok = await UserService.updateConversationTitle(chat.id, newTitle);
+                  if (ok) {
+                    setChatHistories((prev) =>
+                      prev.map((h) => (h.id === chat.id ? { ...h, title: newTitle } : h))
+                    );
+                  }
+                }
+                setEditingHistoryId(null);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+            />
+          ) : (
+            <div
+              className="chat-history-title"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (isGuest) return;
+                setEditingHistoryId(chat.id);
+                setEditingTitle(chat.title || '');
+              }}
+            >
+              {chat.title || '未命名对话'}
+            </div>
+          )}
+          <div className="chat-history-subtitle">
+            {chat.agentName && <span className="chat-history-agent-name">{chat.agentName}</span>}
+            <span className="chat-history-msg-count">
+              {chat.messageCount != null && chat.messageCount > 0
+                ? `${chat.messageCount} 条消息`
+                : '新对话'}
+            </span>
+          </div>
+        </div>
         {!loading && (
           <Popconfirm
             title="确定要删除这个会话吗？"
@@ -1380,17 +1316,6 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                 <div className="chat-history-list">
                   {chatHistories && chatHistories.length > 0 ? (
                     [...chatHistories]
-                      .map((h, idx) => ({ h, idx }))
-                      .sort((a, b) => {
-                        const aHasTs = a.h.timestamp !== undefined ? 1 : 0;
-                        const bHasTs = b.h.timestamp !== undefined ? 1 : 0;
-                        if (aHasTs !== bHasTs) return bHasTs - aHasTs; // 有 timestamp 的在前
-                        if (a.h.timestamp !== undefined && b.h.timestamp !== undefined) {
-                          return (b.h.timestamp as number) - (a.h.timestamp as number); // 按时间倒序
-                        }
-                        return b.idx - a.idx; // 保持无 timestamp 的倒序顺序
-                      })
-                      .map(({ h }) => h)
                       .filter((h) =>
                         sidebarSearchText.trim() === ''
                           ? true

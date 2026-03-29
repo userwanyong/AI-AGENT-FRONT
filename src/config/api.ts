@@ -131,6 +131,9 @@ export const API_ENDPOINTS = {
     WECHAT_QRCODE_GENERATE: '/wechat-mini-program/qrcode/generate',
     WECHAT_QRCODE_STATUS: '/wechat-mini-program/qrcode/status',
     WECHAT_QRCODE_LOGIN: '/wechat-mini-program/qrcode/login',
+    // 会话管理相关
+    SESSION_TITLE: '/session/{sessionId}/title',
+    SESSION_MESSAGES: '/session/{sessionId}/messages',
   },
   FILE: {
     BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/file`,

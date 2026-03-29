@@ -427,7 +427,7 @@
   color: var(--ac-text-secondary);
   position: relative;
   box-sizing: border-box;
-  height: 40px;
+  min-height: 40px;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -469,6 +469,52 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* 历史项信息容器 */
+.chat-history-info {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 历史项副标题 */
+.chat-history-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ac-text-muted);
+  overflow: hidden;
+}
+
+.chat-history-agent-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-history-msg-count {
+  white-space: nowrap;
+}
+
+/* 标题编辑输入框 */
+.chat-history-title-input {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 2px 6px;
+  border: 1px solid var(--ac-border-active);
+  border-radius: 4px;
+  background: var(--ac-bg-input);
+  color: var(--ac-text-primary);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 删除图标 */
