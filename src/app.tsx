@@ -4,6 +4,8 @@ import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toast } from '@douyinfe/semi-ui';
 
+import './styles/index.css';
+
 import {
   LoginPage,
   AgentConfigPage,
@@ -28,9 +30,13 @@ const isAuthenticated = (): boolean => {
   return !!(token && userInfo && isLoggedIn);
 };
 
-// 路由保护组件
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =>
-  isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />;
+// 路由保护组件：管理页面始终使用亮色模式
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  useEffect(() => {
+    document.body.removeAttribute('body-semi-dark');
+  }, []);
+  return isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />;
+};
 
 // 登录重定向组件：登录后进入智能体列表
 const LoginRedirect: React.FC = () =>

@@ -19,13 +19,14 @@ const StyledCard = styled.div<{
   $hover: boolean;
   $clickable: boolean;
 }>`
-  background: ${theme.colors.bg.primary};
+  background: var(--ac-bg-panel, ${theme.colors.bg.primary});
   border-radius: ${theme.borderRadius.lg};
-  border: 1px solid ${theme.colors.border.secondary};
+  border: 1px solid var(--ac-border, ${theme.colors.border.secondary});
   box-shadow: ${(props) => theme.shadows[props.$shadow as keyof typeof theme.shadows]};
   padding: ${(props) => theme.spacing[props.$padding as keyof typeof theme.spacing]};
   transition: all ${theme.animation.duration.normal} ${theme.animation.easing.cubic};
   cursor: ${(props) => (props.$clickable ? 'pointer' : 'default')};
+  color: var(--ac-text-primary, inherit);
 
   ${(props) =>
     props.$hover &&
