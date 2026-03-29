@@ -427,10 +427,11 @@ export const AgentChatPage: React.FC = () => {
     // 加载聊天历史
     loadChatHistory();
 
-    // 根据 URL 判断：有 sessionId 则加载对应会话，否则新建
+    // 根据 URL 判断：有 sessionId 则标记为加载中（由 urlSessionId useEffect 统一加载），否则新建
     if (urlSessionId) {
+      // 不在此处调用 loadSessionChat，避免与 urlSessionId useEffect 重复加载
       setSessionId(urlSessionId);
-      loadSessionChat(urlSessionId);
+      setHistoryRendered(false);
     } else {
       setIsNewChat(true);
       setShowIntroTip(true);
@@ -577,15 +578,10 @@ export const AgentChatPage: React.FC = () => {
           }
         });
 
-        // 更新历史记录中的消息
-        const updatedHistories = chatHistories.map((h) => {
-          if (h.id === sid) {
-            return { ...h, messages: formattedMessages };
-          }
-          return h;
-        });
-
-        setChatHistories(updatedHistories);
+        // 更新历史记录中的消息（使用函数式更新，避免闭包捕获旧 chatHistories 覆盖 loadChatHistory 的结果）
+        setChatHistories((prev) =>
+          prev.map((h) => (h.id === sid ? { ...h, messages: formattedMessages } : h))
+        );
         setHistoryRendered(true);
       }
       // 消息为空也标记渲染完成
