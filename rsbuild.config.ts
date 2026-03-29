@@ -1,9 +1,10 @@
 import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginLess } from '@rsbuild/plugin-less';
 import { defineConfig } from '@rsbuild/core';
+import { pluginVersion } from './build/rsbuild-plugin-version';
 
 export default defineConfig({
-  plugins: [pluginReact(), pluginLess()],
+  plugins: [pluginReact(), pluginLess(), pluginVersion()],
   source: {
     entry: {
       index: './src/app.tsx',

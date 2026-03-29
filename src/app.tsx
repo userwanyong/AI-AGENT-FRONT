@@ -4,6 +4,8 @@ import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toast } from '@douyinfe/semi-ui';
 
+import { initVersionCheck, checkAuthVersionCompatibility } from './utils/version-handler';
+
 import './styles/index.css';
 
 import {
@@ -174,6 +176,11 @@ window.fetch = async (...args) => {
 
 const App: React.FC = () => {
   useEffect(() => {
+    // 检查认证数据与版本兼容性（优先于渲染）
+    checkAuthVersionCompatibility();
+    // 启动后台版本轮询检测
+    initVersionCheck();
+
     const style = document.createElement('style');
     style.textContent = `.semi-table-pagination-info{display:none !important;}`;
     document.head.appendChild(style);
