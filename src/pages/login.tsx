@@ -556,6 +556,21 @@ const LoginPage: React.FC = () => {
     CANCELLED: 'CANCELLED',   // 已取消
   } as const;
 
+  // 登录页始终使用亮色模式
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.body.removeAttribute('body-semi-dark');
+    return () => {
+      // 离开登录页时恢复用户保存的主题
+      const saved = localStorage.getItem('theme');
+      const isDark = saved !== 'light';
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      if (isDark) {
+        document.body.setAttribute('body-semi-dark', '');
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (countdown > 0) {
       const timer = setInterval(() => setCountdown((c) => c - 1), 1000);

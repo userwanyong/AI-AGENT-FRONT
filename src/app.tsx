@@ -4,6 +4,10 @@ import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toast } from '@douyinfe/semi-ui';
 
+import { initVersionCheck, checkAuthVersionCompatibility } from './utils/version-handler';
+
+import './styles/index.css';
+
 import {
   LoginPage,
   AgentConfigPage,
@@ -28,9 +32,13 @@ const isAuthenticated = (): boolean => {
   return !!(token && userInfo && isLoggedIn);
 };
 
-// 路由保护组件
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =>
-  isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />;
+// 路由保护组件：管理页面始终使用亮色模式
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  useEffect(() => {
+    document.body.removeAttribute('body-semi-dark');
+  }, []);
+  return isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />;
+};
 
 // 登录重定向组件：登录后进入智能体列表
 const LoginRedirect: React.FC = () =>
@@ -168,6 +176,11 @@ window.fetch = async (...args) => {
 
 const App: React.FC = () => {
   useEffect(() => {
+    // 检查认证数据与版本兼容性（优先于渲染）
+    checkAuthVersionCompatibility();
+    // 启动后台版本轮询检测
+    initVersionCheck();
+
     const style = document.createElement('style');
     style.textContent = `.semi-table-pagination-info{display:none !important;}`;
     document.head.appendChild(style);

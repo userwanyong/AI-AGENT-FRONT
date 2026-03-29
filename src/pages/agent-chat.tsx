@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 import { marked } from 'marked';
 import hljs from 'highlight.js';
@@ -31,6 +31,95 @@ import '../styles/agent-chat.css';
 import { AiAgentService, UserService, AdminUserService } from '../services';
 import { AgentResponseDTO } from '../services/admin-user-service';
 
+// SVG 图标组件（遵循 frontend-design no-emoji 规则）
+const RobotIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7.001 7.001 0 0 1 6.07 19H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 12 2zm-1 9a5 5 0 0 0-5 5h10a5 5 0 0 0-5-5h-.01.01zm-2 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+  </svg>
+);
+
+const SunIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-3a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1zm0 15a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1zm9-8a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zM4 12a1 1 0 0 1-1 1H2a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zm15.07-6.36a1 1 0 0 1 0 1.41l-.7.71a1 1 0 1 1-1.42-1.42l.71-.7a1 1 0 0 1 1.41 0zM6.34 17.66l-.71.7a1 1 0 1 1-1.41-1.41l.7-.71a1 1 0 0 1 1.42 1.42zm12.02 0a1 1 0 0 1-1.41 0l-.71-.7a1 1 0 1 1 1.42-1.42l.7.71a1 1 0 0 1 0 1.41zM6.34 6.34a1 1 0 0 1-1.42-1.42l.71-.7a1 1 0 1 1 1.41 1.41l-.7.71z"/>
+  </svg>
+);
+
+const MoonIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>
+  </svg>
+);
+
+const SystemThemeIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+    <line x1="8" y1="21" x2="16" y2="21"/>
+    <line x1="12" y1="17" x2="12" y2="21"/>
+  </svg>
+);
+
+type ThemeMode = 'dark' | 'light' | 'system';
+
+// 获取系统主题偏好
+function getSystemTheme(): 'dark' | 'light' {
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
+}
+
+// 主题管理 hook（支持 dark / light / system 三态）
+function useTheme() {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'system' || saved === 'light' || saved === 'dark') return saved;
+    return 'system'; // 默认跟随系统
+  });
+
+  // 解析实际生效的主题
+  const resolvedTheme = themeMode === 'system' ? getSystemTheme() : themeMode;
+
+  // 应用主题到 DOM
+  const applyTheme = useCallback((effectiveTheme: 'dark' | 'light') => {
+    document.documentElement.setAttribute('data-theme', effectiveTheme);
+    if (effectiveTheme === 'dark') {
+      document.body.setAttribute('body-semi-dark', '');
+    } else {
+      document.body.removeAttribute('body-semi-dark');
+    }
+  }, []);
+
+  // 监听 themeMode 变化
+  useEffect(() => {
+    const effective = themeMode === 'system' ? getSystemTheme() : themeMode;
+    applyTheme(effective);
+    localStorage.setItem('theme', themeMode);
+  }, [themeMode, applyTheme]);
+
+  // 监听系统主题变化（仅在 system 模式下生效）
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      if (themeMode === 'system') {
+        applyTheme(getSystemTheme());
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [themeMode, applyTheme]);
+
+  // 三态切换：dark → light → system → dark
+  const cycleTheme = useCallback(() => {
+    setThemeMode((prev) => {
+      if (prev === 'dark') return 'light';
+      if (prev === 'light') return 'system';
+      return 'dark';
+    });
+  }, []);
+
+  return { themeMode, resolvedTheme, cycleTheme };
+}
+
 // 类型定义
 interface ChatMessage {
   role: 'user' | 'ai';
@@ -58,6 +147,7 @@ interface StageMessage {
 // 主组件
 export const AgentChatPage: React.FC = () => {
   const navigate = useNavigate();
+  const { themeMode: currentTheme, resolvedTheme, cycleTheme } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -674,6 +764,7 @@ export const AgentChatPage: React.FC = () => {
     setSessionId(newSessionId);
 
     // 清空消息和面板
+    setInput('');
     setMessages([]);
     setThinkingMessages([]);
     setResultMessages([]);
@@ -711,6 +802,7 @@ export const AgentChatPage: React.FC = () => {
     }
 
     // 清空思考和结果面板
+    setInput('');
     setThinkingMessages([]);
     setResultMessages([]);
     // 根据智能体策略决定是否启用双面板
@@ -1019,7 +1111,7 @@ export const AgentChatPage: React.FC = () => {
         typeof message.content === 'string' ? message.content : String(message.content ?? '');
       return (
         <div className="message-bubble">
-          <div className="avatar ai">🤖</div>
+          <div className="avatar ai"><RobotIcon size={20} /></div>
           <div className="message-content ai">
             <div className="ai-message">{renderContentWithDrawio(safe)}</div>
           </div>
@@ -1039,7 +1131,7 @@ export const AgentChatPage: React.FC = () => {
       typeof message.content === 'string' ? message.content : String(message.content ?? '');
     return (
       <div className="message-bubble">
-        <div className="avatar ai">🤖</div>
+        <div className="avatar ai"><RobotIcon size={20} /></div>
         <div className="message-content ai">
           <div className="ai-message">
             <span
@@ -1325,6 +1417,31 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
               </div>
             )}
 
+            {/* 主题切换按钮（底部居中，GitHub 与用户头像之间） */}
+            <Tooltip
+              content={
+                currentTheme === 'dark' ? '当前：暗色（点击→亮色）' :
+                currentTheme === 'light' ? '当前：亮色（点击→跟随系统）' :
+                '当前：跟随系统（点击→暗色）'
+              }
+              position="top"
+            >
+              <div
+                className="theme-toggle-btn"
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  bottom: '12px',
+                  zIndex: 5,
+                  transform: 'translateX(-50%)',
+                }}
+                onClick={cycleTheme}
+                aria-label="切换主题"
+              >
+                {currentTheme === 'dark' ? <SunIcon /> : currentTheme === 'light' ? <MoonIcon /> : <SystemThemeIcon />}
+              </div>
+            </Tooltip>
+
             {/* 侧边栏左下角 GitHub 链接 */}
             <a
               className="sidebar-github-link"
@@ -1395,38 +1512,40 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
           <div
             className={`main-content ${isNewChat && messages.length === 0 ? 'intro-center' : ''}`}
           >
-            {!(isNewChat && messages.length === 0) && (
-              <div className="tab-container">
-                <div
-                  className={`tab ${activeTab === 'thinking' ? 'active' : ''}`}
-                  onClick={() => handleTabClick('thinking')}
-                >
-                  回答panel
-                </div>
-                {(showResultPanel || sideBySideMode) && (
+            {!(isNewChat && messages.length === 0) && (() => {
+              const showResultTab = showResultPanel || sideBySideMode;
+              const showTabs = showResultTab; // 只有两个 tab 同时存在时才显示 tab 栏
+              return showTabs ? (
+                <div className="tab-container">
+                  <div
+                    className={`tab ${activeTab === 'thinking' ? 'active' : ''}`}
+                    onClick={() => handleTabClick('thinking')}
+                  >
+                    回答
+                  </div>
                   <div
                     className={`tab ${activeTab === 'result' ? 'active' : ''}`}
                     onClick={() => handleTabClick('result')}
                   >
-                    总结panel
+                    总结
                   </div>
-                )}
-                {agentList.find((a) => a.id === selectedAgentId)?.strategy !==
-                  'commonExecuteStrategy' && (
-                  <Button
-                    type="tertiary"
-                    theme="borderless"
-                    size="small"
-                    onClick={() => {
-                      setSideBySideMode(!sideBySideMode);
-                    }}
-                    className="tab-mode-toggle"
-                  >
-                    {sideBySideMode ? '单面板模式' : '双面板模式'}
-                  </Button>
-                )}
-              </div>
-            )}
+                  {agentList.find((a) => a.id === selectedAgentId)?.strategy !==
+                    'commonExecuteStrategy' && (
+                    <Button
+                      type="tertiary"
+                      theme="borderless"
+                      size="small"
+                      onClick={() => {
+                        setSideBySideMode(!sideBySideMode);
+                      }}
+                      className="tab-mode-toggle"
+                    >
+                      {sideBySideMode ? '单面板模式' : '双面板模式'}
+                    </Button>
+                  )}
+                </div>
+              ) : null;
+            })()}
 
             {!(isNewChat && messages.length === 0) && (
               <div className={`panels-container ${sideBySideMode ? 'side-by-side' : 'stacked'}`}>
