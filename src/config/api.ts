@@ -107,6 +107,7 @@ export const API_ENDPOINTS = {
     BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/agent`,
     ARMORY_AGENT: '/armory_agent',
     AUTO_AGENT: '/auto_agent',
+    STOP_AUTO_AGENT: '/stop_auto_agent',
   },
   
   // 管理员用户相关接口

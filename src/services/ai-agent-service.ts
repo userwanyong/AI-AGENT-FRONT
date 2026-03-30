@@ -84,4 +84,25 @@ export class AiAgentService {
 
     return response;
   }
+
+  /**
+   * 停止自动执行任务
+   * @param sessionId 会话ID
+   */
+  static async stopChat(sessionId: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.AI_AGENT.STOP_AUTO_AGENT}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ sessionId }),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return parseResponseJsonSafely(response);
+    } catch (error) {
+      console.error('停止任务失败:', error);
+      throw error;
+    }
+  }
 }
