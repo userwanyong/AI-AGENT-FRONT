@@ -536,6 +536,36 @@
   font-size: 13px;
 }
 
+/* --- 流式状态脉冲指示器（侧边栏历史项） --- */
+.session-streaming-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ac-cta);
+  flex-shrink: 0;
+  margin-right: 8px;
+  animation: streaming-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+@keyframes streaming-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* --- 停止生成按钮 --- */
+.stop-generation-btn {
+  font-size: 12px !important;
+  padding: 4px 12px !important;
+  border-radius: 16px !important;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.stop-generation-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
 /* ======================== */
 /* Main Content              */
 /* ======================== */
@@ -1099,6 +1129,18 @@
   box-shadow: none;
 }
 
+/* 停止生成按钮（红色） */
+.send-round.stop-generation-btn {
+  background: #EF4444 !important;
+  border: none !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+  font-size: 23px !important;
+}
+.send-round.stop-generation-btn:hover {
+  background: #DC2626 !important;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.6);
+}
+
 /* Composer Actions */
 .composer-actions {
   display: flex;
@@ -1183,6 +1225,93 @@
 }
 
 .composer-actions .send-round.action { margin-left: auto; }
+
+/* ======================== */
+/* AI Thinking Block         */
+/* ======================== */
+.ai-thinking-block {
+  margin-bottom: 12px;
+  border: 1px solid var(--ac-border);
+  border-radius: 8px;
+  background: rgba(100, 116, 139, 0.08);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ai-thinking-block[open] {
+  border-color: var(--ac-border-active);
+  box-shadow: var(--ac-glow-subtle);
+}
+
+.ai-thinking-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ac-text-muted);
+  user-select: none;
+  transition: color 0.2s ease, background-color 0.2s ease;
+  list-style: none;
+}
+
+.ai-thinking-summary::-webkit-details-marker { display: none; }
+
+.ai-thinking-summary::before {
+  content: '▶';
+  font-size: 9px;
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.ai-thinking-block[open] > .ai-thinking-summary::before {
+  transform: rotate(90deg);
+}
+
+.ai-thinking-summary:hover {
+  color: var(--ac-text-secondary);
+  background: rgba(100, 116, 139, 0.06);
+}
+
+.ai-thinking-icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.ai-thinking-content {
+  padding: 10px 14px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ac-text-secondary);
+  border-top: 1px solid var(--ac-border);
+  max-height: 400px;
+  overflow-y: auto;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.ai-thinking-content .markdown-content {
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  color: var(--ac-text-secondary);
+}
+
+.ai-thinking-content .markdown-content pre {
+  font-size: 12px;
+  padding: 10px;
+}
+
+/* 亮色模式微调 */
+[data-theme="light"] .ai-thinking-block {
+  background: rgba(100, 116, 139, 0.05);
+}
+
+[data-theme="light"] .ai-thinking-summary:hover {
+  background: rgba(100, 116, 139, 0.04);
+}
 
 /* ======================== */
 /* Markdown Content          */
