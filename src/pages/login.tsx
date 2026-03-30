@@ -727,7 +727,7 @@ const LoginPage: React.FC = () => {
     localStorage.setItem('isLoggedIn', 'true');
 
     Toast.success('登录成功！');
-    navigate('/agent-chat');
+    navigate('/');
   };
 
   const handleSendCode = async () => {
@@ -838,13 +838,13 @@ const LoginPage: React.FC = () => {
                 onCancel: () => {
                   // 直接进入聊天页面
                   Toast.success('登录成功！');
-                  navigate('/agent-chat');
+                  navigate('/');
                 },
               });
             }, 500);
           } else {
             Toast.success('登录成功！');
-            navigate('/agent-chat');
+            navigate('/');
           }
         } else {
           Toast.error(result.message || '验证码错误或已过期，请重试');
@@ -893,7 +893,7 @@ const LoginPage: React.FC = () => {
           localStorage.setItem('isLoggedIn', 'true');
 
           Toast.success('登录成功！');
-          navigate('/agent-chat');
+          navigate('/');
         } else {
           Toast.error(result.message || '邮箱或密码错误，请重试');
         }
@@ -938,7 +938,7 @@ const LoginPage: React.FC = () => {
 
       if (result.success) {
         Toast.success('密码设置成功！登录成功！');
-        navigate('/agent-chat');
+        navigate('/');
       } else {
         Toast.error(result.message || '密码设置失败，请重试');
       }
@@ -960,7 +960,7 @@ const LoginPage: React.FC = () => {
       onOk: () => {
         // 确认使用默认密码，进入聊天页面
         Toast.success('登录成功！');
-        navigate('/agent-chat');
+        navigate('/');
       },
       onCancel: () => {
         // 继续留在密码创建界面

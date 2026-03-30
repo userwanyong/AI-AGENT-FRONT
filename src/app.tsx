@@ -42,7 +42,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // 登录重定向组件：登录后进入智能体列表
 const LoginRedirect: React.FC = () =>
-  isAuthenticated() ? <Navigate to="/agent-chat" replace /> : <LoginPage />;
+  isAuthenticated() ? <Navigate to="/" replace /> : <LoginPage />;
 
 // 临时禁用 findDOMNode、ReactDOM.render is no longer supported 警告
 const originalConsoleError = console.error;
@@ -267,14 +267,25 @@ const App: React.FC = () => {
         />
         <Route
           path="/agent-chat"
+          element={<Navigate to="/" replace />}
+        />
+        <Route
+          path="/c/:sessionId"
           element={
             <ProtectedRoute>
               <AgentChatPage />
             </ProtectedRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/agent-chat" replace />} />
-        <Route path="*" element={<Navigate to="/agent-chat" replace />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <AgentChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

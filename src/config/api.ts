@@ -107,6 +107,7 @@ export const API_ENDPOINTS = {
     BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/agent`,
     ARMORY_AGENT: '/armory_agent',
     AUTO_AGENT: '/auto_agent',
+    STOP_AUTO_AGENT: '/stop_auto_agent',
   },
   
   // 管理员用户相关接口
@@ -131,6 +132,9 @@ export const API_ENDPOINTS = {
     WECHAT_QRCODE_GENERATE: '/wechat-mini-program/qrcode/generate',
     WECHAT_QRCODE_STATUS: '/wechat-mini-program/qrcode/status',
     WECHAT_QRCODE_LOGIN: '/wechat-mini-program/qrcode/login',
+    // 会话管理相关
+    SESSION_TITLE: '/session/{sessionId}/title',
+    SESSION_MESSAGES: '/session/{sessionId}/messages',
   },
   FILE: {
     BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/file`,

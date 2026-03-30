@@ -60,10 +60,10 @@ export class UserService {
   }
 
   /**
-   * 获取用户历史对话列表
-   * @returns {Promise<string[]>} 历史对话列表
+   * 获取用户历史对话列表（结构化数据）
+   * @returns {Promise<ConversationResponseDTO[]>} 历史对话列表
    */
-  static async getUserHistory(): Promise<string[]> {
+  static async getUserHistory(): Promise<ConversationResponseDTO[]> {
     try {
       const response = await fetch(`${API_ENDPOINTS.USER.BASE}/history`, {
         method: 'GET',
@@ -113,12 +113,12 @@ export class UserService {
   /**
    * 获取特定会话的对话记录
    * @param {string} sessionId 会话ID
-   * @returns {Promise<string[]>} 对话记录列表
+   * @returns {Promise<any[]>} 对话记录列表
    */
   static async getUserSession(sessionId: string): Promise<any[]> {
     try {
       const response = await fetch(
-        `${API_ENDPOINTS.USER.BASE}/session?session_id=${sessionId}`,
+        `${API_ENDPOINTS.USER.BASE}/session/${encodeURIComponent(sessionId)}`,
         {
           method: 'GET',
           headers: getDefaultHeaders(),
@@ -131,10 +131,70 @@ export class UserService {
 
       const data = await response.json();
       const list = data?.data || [];
-      // 保持接口原始顺序（通常为时间正序），由前端按需渲染
       return Array.isArray(list) ? list : [];
     } catch (error) {
       return [];
+    }
+  }
+
+  /**
+   * 修改会话标题
+   * @param sessionId 会话ID
+   * @param title 新标题
+   * @returns 是否修改成功
+   */
+  static async updateConversationTitle(sessionId: string, title: string): Promise<boolean> {
+    try {
+      const url = `${API_ENDPOINTS.USER.BASE}/session/${encodeURIComponent(sessionId)}/title`;
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ sessionId, title }),
+      });
+
+      if (!response.ok) {
+        throw new Error('修改标题失败');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('修改会话标题失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 分页获取会话消息
+   * @param sessionId 会话ID
+   * @param cursor 游标（上一页最后一条消息ID），首次加载不传
+   * @param limit 每页数量，默认 20
+   * @returns 分页消息数据
+   */
+  static async getPaginatedMessages(
+    sessionId: string,
+    cursor?: number,
+    limit: number = 20
+  ): Promise<MessagePageResponseDTO | null> {
+    try {
+      let url = `${API_ENDPOINTS.USER.BASE}/session/${encodeURIComponent(sessionId)}/messages?limit=${limit}`;
+      if (cursor !== undefined && cursor !== null) {
+        url += `&cursor=${cursor}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('获取分页消息失败');
+      }
+
+      const data = await parseResponseJsonSafely(response);
+      return data.data || null;
+    } catch (error) {
+      console.error('获取分页消息失败:', error);
+      return null;
     }
   }
 
@@ -582,4 +642,34 @@ export interface WechatMiniProgramQrCodeLoginRequestDTO {
 // 定义刷新Token请求类型
 export interface RefreshTokenRequestDTO {
   refreshToken: string;
+}
+
+// 会话列表响应 DTO（对应后端 ConversationResponseDTO）
+export interface ConversationResponseDTO {
+  sessionId: string;
+  userId: number;
+  agentId: number;
+  agentName: string;
+  title: string;
+  messageCount: number;
+  lastMessageAt: string;
+  createTime: string;
+  updateTime: string;
+}
+
+// 消息分页响应 DTO（对应后端 MessagePageResponseDTO）
+export interface MessagePageResponseDTO {
+  messages: MessageItemDTO[];
+  nextCursor: number | null;
+  hasMore: boolean;
+}
+
+// 单条消息 DTO（对应后端 MessageItemDTO）
+export interface MessageItemDTO {
+  id: number;
+  conversationId: string;
+  role: string;       // user/assistant/system/tool
+  content: string;
+  messageType: string;
+  createTime: string;
 }

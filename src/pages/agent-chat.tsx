@@ -1,5 +1,7 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { SessionStateManager, createEmptySessionState } from '../utils/session-state';
+import type { ChatMessage, StageMessage } from '../utils/session-state';
 
 import { marked } from 'marked';
 import hljs from 'highlight.js';
@@ -28,7 +30,7 @@ import {
 import { DrawioViewer } from '../components/DrawioViewer';
 
 import '../styles/agent-chat.css';
-import { AiAgentService, UserService, AdminUserService } from '../services';
+import { AiAgentService, UserService, AdminUserService, ConversationResponseDTO, MessagePageResponseDTO, MessageItemDTO } from '../services';
 import { AgentResponseDTO } from '../services/admin-user-service';
 
 // SVG 图标组件（遵循 frontend-design no-emoji 规则）
@@ -120,33 +122,24 @@ function useTheme() {
   return { themeMode, resolvedTheme, cycleTheme };
 }
 
-// 类型定义
-interface ChatMessage {
-  role: 'user' | 'ai';
-  content: string;
-  timestamp: number;
-  type?: string;
-  subType?: string;
-}
-
+// 会话历史类型（仅本组件使用）
 interface ChatHistory {
   id: string;
   title: string;
   messages: ChatMessage[];
   agentId: string;
+  agentName?: string;
   maxStep: string;
+  messageCount?: number;
+  lastMessageAt?: string;
+  createTime?: string;
   timestamp?: number;
-}
-
-interface StageMessage {
-  type: string;
-  subType: string;
-  content: string;
 }
 
 // 主组件
 export const AgentChatPage: React.FC = () => {
   const navigate = useNavigate();
+  const { sessionId: urlSessionId } = useParams<{ sessionId?: string }>();
   const { themeMode: currentTheme, resolvedTheme, cycleTheme } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -170,6 +163,12 @@ export const AgentChatPage: React.FC = () => {
   const [agentList, setAgentList] = useState<AgentResponseDTO[]>([]);
   // 首次加载/新建对话时顶部提示文案
   const [showIntroTip, setShowIntroTip] = useState(false);
+  // 消息分页状态
+  const [messageCursor, setMessageCursor] = useState<number | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  // 会话标题编辑状态
+  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const thinkingPanelRef = useRef<HTMLDivElement>(null);
   const resultPanelRef = useRef<HTMLDivElement>(null);
@@ -185,6 +184,88 @@ export const AgentChatPage: React.FC = () => {
   useEffect(() => {
     showChatHistoryRef.current = showChatHistory;
   }, [showChatHistory]);
+
+  // === 多会话独立状态管理 ===
+  const sessionMapRef = useRef(new SessionStateManager());
+  const activeSessionIdRef = useRef('');
+  const hasShownSwitchToastRef = useRef(false);
+  // 用于 processStream 中读取最新 agentList（避免闭包过期）
+  const agentListRef = useRef(agentList);
+  useEffect(() => { agentListRef.current = agentList; }, [agentList]);
+
+  /** 保存当前 React 状态到 SessionMap */
+  const saveCurrentSessionState = useCallback(() => {
+    const sid = sessionId;
+    if (!sid) return;
+    sessionMapRef.current.set(sid, {
+      sessionId: sid,
+      messages,
+      thinkingMessages,
+      resultMessages,
+      loading,
+      reader: null, // reader 由 processStream 自行管理
+      abortController: null,
+      agentId: selectedAgentId,
+      maxStep: selectedMaxStep,
+      sideBySideMode,
+      showResultPanel,
+      activeTab,
+      messageCursor,
+      hasMoreMessages,
+      historyRendered,
+      isNewChat,
+      lastActiveTime: Date.now(),
+    });
+  }, [sessionId, messages, thinkingMessages, resultMessages, loading, selectedAgentId,
+    selectedMaxStep, sideBySideMode, showResultPanel, activeTab, messageCursor,
+    hasMoreMessages, historyRendered, isNewChat]);
+
+  /** 从 SessionMap 恢复会话状态到 React State */
+  const restoreSessionState = useCallback((sid: string): boolean => {
+    const saved = sessionMapRef.current.get(sid);
+    if (saved) {
+      setMessages(saved.messages);
+      setThinkingMessages(saved.thinkingMessages);
+      setResultMessages(saved.resultMessages);
+      setLoading(saved.loading);
+      setSelectedAgentId(saved.agentId);
+      setSelectedMaxStep(saved.maxStep);
+      setSideBySideMode(saved.sideBySideMode);
+      setShowResultPanel(saved.showResultPanel);
+      setActiveTab(saved.activeTab);
+      setMessageCursor(saved.messageCursor);
+      setHasMoreMessages(saved.hasMoreMessages);
+      setHistoryRendered(saved.historyRendered);
+      setIsNewChat(saved.isNewChat);
+      return true;
+    }
+    return false;
+  }, []);
+
+  /** 停止指定会话的流式输出（前端中断 + 后端停止） */
+  const stopGeneration = useCallback(async (sid?: string) => {
+    const targetSid = sid || sessionId;
+    const state = sessionMapRef.current.get(targetSid);
+    if (state) {
+      if (state.abortController) {
+        state.abortController.abort();
+      }
+      if (state.reader) {
+        try { state.reader.cancel(); } catch (_) { /* ignore */ }
+      }
+      sessionMapRef.current.update(targetSid, { loading: false, reader: null, abortController: null });
+      // 如果是当前活跃会话，同步 React 状态
+      if (activeSessionIdRef.current === targetSid) {
+        setLoading(false);
+      }
+    }
+    // 通知后端停止任务
+    try {
+      await AiAgentService.stopChat(targetSid);
+    } catch (e) {
+      console.error('通知后端停止失败:', e);
+    }
+  }, [sessionId]);
 
   const handleLogout = () => {
     try {
@@ -415,14 +496,80 @@ export const AgentChatPage: React.FC = () => {
 
     // 加载聊天历史
     loadChatHistory();
-    setIsNewChat(true);
-    setShowIntroTip(true);
-    setSessionId(generateSessionId());
+
+    // 根据 URL 判断：有 sessionId 则标记为加载中（由 urlSessionId useEffect 统一加载），否则新建
+    if (urlSessionId) {
+      // 不在此处调用 loadSessionChat，避免与 urlSessionId useEffect 重复加载
+      setSessionId(urlSessionId);
+      activeSessionIdRef.current = urlSessionId;
+      setHistoryRendered(false);
+    } else {
+      setIsNewChat(true);
+      setShowIntroTip(true);
+      const newSid = generateSessionId();
+      setSessionId(newSid);
+      activeSessionIdRef.current = newSid;
+    }
 
     return () => {
       document.removeEventListener('click', clickHandler);
     };
   }, []);
+
+  // 响应 URL 中的 sessionId 变化（用户点击侧边栏历史项或浏览器前进/后退）
+  useEffect(() => {
+    if (!urlSessionId) return;
+    // 跳过初始化阶段（已由 init useEffect 处理）
+    if (urlSessionId === sessionId) return;
+
+    // 1. 保存当前会话状态到 Map
+    saveCurrentSessionState();
+
+    // 2. 首次切换时提示
+    if (!hasShownSwitchToastRef.current && loading) {
+      hasShownSwitchToastRef.current = true;
+      Toast.info({ content: '旧会话将继续在后台运行', duration: 3 });
+    }
+
+    // 3. 尝试从 Map 恢复目标会话状态
+    const restored = restoreSessionState(urlSessionId);
+
+    if (restored) {
+      // Map 中有缓存 → 直接恢复
+      setSessionId(urlSessionId);
+      activeSessionIdRef.current = urlSessionId;
+      setInput('');
+      // 恢复后自动滚动到底部（延迟等待 DOM 更新）
+      setTimeout(() => {
+        scrollToBottom(thinkingPanelRef);
+        scrollToBottom(resultPanelRef);
+      }, 150);
+    } else {
+      // Map 中没有 → 从后端加载
+      setHistoryRendered(false);
+      setIsNewChat(false);
+      setInput('');
+      setLoading(false); // 重置 loading，避免从流式会话切换过来时残留 true
+      setThinkingMessages([]);
+      setResultMessages([]);
+      setActiveTab('thinking');
+
+      const chat = chatHistories.find((h) => h.id === urlSessionId);
+      if (chat) {
+        const strategy = agentList.find((a) => a.id === chat.agentId)?.strategy;
+        setSideBySideMode(strategy !== 'commonExecuteStrategy');
+        if (strategy === 'commonExecuteStrategy') {
+          setShowResultPanel(false);
+        }
+        setSelectedAgentId(chat.agentId);
+        setSelectedMaxStep(chat.maxStep);
+      }
+
+      setSessionId(urlSessionId);
+      activeSessionIdRef.current = urlSessionId;
+      loadSessionChat(urlSessionId);
+    }
+  }, [urlSessionId]);
 
   // 当智能体列表或历史记录/会话变化时，确保选中当前会话对应的智能体
   useEffect(() => {
@@ -441,39 +588,22 @@ export const AgentChatPage: React.FC = () => {
   // 加载聊天历史
   const loadChatHistory = async () => {
     try {
-      // 从后端API获取历史记录
-      const historyList = await UserService.getUserHistory();
+      // 从后端API获取历史记录（后端返回结构化 ConversationResponseDTO[]）
+      const historyList: ConversationResponseDTO[] = await UserService.getUserHistory();
 
       if (historyList && historyList.length > 0) {
-        const formattedHistories = historyList.map((item) => {
-          // 去除包裹引号并反转义
-          const line = decodeEscapedText(item);
-          let sid = generateSessionId();
-          let titleText = line.trim();
-          let aid = selectedAgentId;
-          if (line.includes(':')) {
-            const colon = line.indexOf(':');
-            sid = line.substring(0, colon).trim();
-            const underscore = line.indexOf('_', colon + 1);
-            const between =
-              underscore >= 0 ? line.substring(colon + 1, underscore) : line.substring(colon + 1);
-            titleText = between.trim();
-            if (underscore >= 0) {
-              aid = line.substring(underscore + 1).trim();
-            }
-          }
-          const title = titleText
-            ? titleText.substring(0, 30) + (titleText.length > 30 ? '...' : '')
-            : '未命名对话';
-          return {
-            id: sid,
-            title,
-            messages: [], // 初始为空，点击时再加载
-            agentId: aid || '',
-            maxStep: selectedMaxStep,
-            // timestamp: Date.now()
-          };
-        });
+        const formattedHistories: ChatHistory[] = historyList.map((conv) => ({
+          id: conv.sessionId,
+          title: conv.title || '未命名对话',
+          messages: [],
+          agentId: String(conv.agentId),
+          agentName: conv.agentName,
+          maxStep: selectedMaxStep,
+          messageCount: conv.messageCount,
+          lastMessageAt: conv.lastMessageAt,
+          createTime: conv.createTime,
+          timestamp: conv.updateTime ? new Date(conv.updateTime).getTime() : undefined,
+        }));
 
         setChatHistories(formattedHistories);
       } else {
@@ -481,218 +611,85 @@ export const AgentChatPage: React.FC = () => {
       }
     } catch (error) {
       console.error('加载聊天历史失败:', error);
-      // 如果API调用失败，尝试从本地存储加载
-      const history = localStorage.getItem('chatHistory');
-      if (history) {
-        setChatHistories(JSON.parse(history));
-      }
     }
   };
 
-  // 提取字符串中第一个冒号与其后第一个下划线之间的内容
-  const extractBetweenColonAndUnderscore = (s: string) => {
-    if (typeof s !== 'string') return '';
-    const colon = s.indexOf(':');
-    if (colon < 0) return s.trim();
-    const underscore = s.indexOf('_', colon + 1);
-    if (underscore < 0) return s.substring(colon + 1).trim();
-    return s.substring(colon + 1, underscore).trim();
-  };
-
-  // 反转义并去除包裹引号，返回安全文本
-  const decodeEscapedText = (raw: unknown) => {
-    if (typeof raw !== 'string') return String(raw ?? '');
-    let t = raw;
+  // 加载特定会话的聊天记录（使用分页消息接口）
+  const loadSessionChat = async (sid: string) => {
     try {
-      if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
-        t = JSON.parse(t);
-      }
-    } catch {}
-    t = t.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r');
-    return t;
-  };
+      // 使用分页消息接口获取会话消息
+      const pageData = await UserService.getPaginatedMessages(sid, undefined, 50);
 
-  // 加载特定会话的聊天记录
-  const loadSessionChat = async (sessionId: string) => {
-    try {
-      // 从后端API获取特定会话的聊天记录
-      const sessionMessages = await UserService.getUserSession(sessionId);
-
-      if (sessionMessages && sessionMessages.length > 0) {
+      if (pageData && pageData.messages && pageData.messages.length > 0) {
         const formattedMessages: ChatMessage[] = [];
 
-        // 统一反转义工具
-        const decode = (t: any) => {
-          let s = typeof t === 'string' ? t : String(t ?? '');
-          try {
-            if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-              s = JSON.parse(s);
-            }
-          } catch {}
-          return s.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r');
-        };
-
-        // 适配 Spring Message 对象
-        const normalizeSpringMessage = (obj: any): ChatMessage => {
-          const rawType = (obj?.messageType || obj?.role || obj?.type || '')
-            .toString()
-            .toUpperCase();
-          const role: 'user' | 'ai' = rawType === 'USER' ? 'user' : 'ai';
-          let content: any = obj?.content;
-          // 优先读取顶层 text 字段（Spring AI 常见结构）
-          if (content == null && typeof obj?.text !== 'undefined') {
-            content = obj.text;
-          }
-          // 常见 Content 结构兼容
-          if (content && typeof content !== 'string') {
-            if (typeof content.content === 'string') content = content.content;
-            else if (typeof content.text === 'string') content = content.text;
-            else if (Array.isArray(content))
-              content = content
-                .map((c: any) => (typeof c === 'string' ? c : c?.text || c?.content || ''))
-                .join('\n');
-          }
-          const text = decode(content ?? JSON.stringify(obj));
-          const type = obj?.metadata?.type ?? obj?.type;
-          const subType = obj?.metadata?.subType ?? obj?.subType;
-          return { role, content: text, timestamp: Date.now(), type, subType };
-        };
-
-        // 解析消息格式（兼容字符串与对象）
-        sessionMessages.forEach((msg) => {
-          if (typeof msg === 'string') {
-            if (msg.startsWith('USER:')) {
-              const rawUser = extractBetweenColonAndUnderscore(msg);
-              formattedMessages.push({
-                role: 'user',
-                content: decodeEscapedText(rawUser),
-                timestamp: Date.now(),
-              });
-            } else if (msg.startsWith('AI:')) {
-              // 解析AI消息，优先处理JSON；兼容部分前缀字符（如"/")
-              try {
-                let content = msg.substring(3).trim();
-                if (content.startsWith('/')) content = content.substring(1).trim();
-                const jsonStart = content.indexOf('{');
-                if (jsonStart >= 0) {
-                  try {
-                    const jsonObj = JSON.parse(content.substring(jsonStart));
-                    const hasContentField =
-                      Object.prototype.hasOwnProperty.call(jsonObj, 'content') &&
-                      jsonObj.content !== undefined;
-                    const raw = hasContentField
-                      ? jsonObj.content
-                      : typeof jsonObj.text !== 'undefined'
-                      ? jsonObj.text
-                      : '';
-                    const decoded = decode(raw);
-                    const metaType = jsonObj?.metadata?.type ?? jsonObj?.type;
-                    const metaSubType = jsonObj?.metadata?.subType ?? jsonObj?.subType;
-                    if (hasContentField || typeof jsonObj.text !== 'undefined') {
-                      formattedMessages.push({
-                        role: 'ai',
-                        content: decoded,
-                        type: metaType,
-                        subType: metaSubType,
-                        timestamp: Date.now(),
-                      });
-                    } else {
-                      formattedMessages.push({
-                        role: 'ai',
-                        type: metaType,
-                        subType: metaSubType,
-                        content: JSON.stringify(jsonObj, null, 2),
-                        timestamp: Date.now(),
-                      });
-                    }
-                  } catch (jsonError) {
-                    console.error('JSON解析失败:', jsonError);
-                    const t = decode(content);
-                    formattedMessages.push({ role: 'ai', content: t, timestamp: Date.now() });
-                  }
-                } else {
-                  const t = decode(content);
-                  formattedMessages.push({ role: 'ai', content: t, timestamp: Date.now() });
-                }
-              } catch (e) {
-                console.error('解析AI消息失败:', e);
-                let t = msg.substring(3).trim();
-                if (t.startsWith('/')) t = t.substring(1).trim();
-                formattedMessages.push({ role: 'ai', content: decode(t), timestamp: Date.now() });
-              }
-            } else {
-              // 没有前缀：按用户消息处理
-              formattedMessages.push({ role: 'user', content: msg, timestamp: Date.now() });
-            }
-          } else if (msg && typeof msg === 'object') {
-            // Spring Message 对象
-            try {
-              formattedMessages.push(normalizeSpringMessage(msg));
-            } catch (e) {
-              console.error('解析 Spring Message 失败:', e, msg);
-            }
-          } else {
-            console.warn('未知消息类型，丢弃:', msg);
-          }
+        // 将 MessageItemDTO 转换为 ChatMessage
+        // 后端返回的消息已按时间正序排列
+        pageData.messages.forEach((msg: MessageItemDTO) => {
+          const role: 'user' | 'ai' = msg.role === 'user' ? 'user' : 'ai';
+          const content = msg.content || '';
+          formattedMessages.push({
+            role,
+            content,
+            timestamp: msg.createTime ? new Date(msg.createTime).getTime() : Date.now(),
+          });
         });
 
+        // 更新分页状态
+        setMessageCursor(pageData.nextCursor);
+        setHasMoreMessages(pageData.hasMore);
+
         // 更新当前会话ID和消息
-        setSessionId(sessionId);
+        setSessionId(sid);
         setMessages(formattedMessages);
+
         // 将加载的历史消息分别添加到两个面板，按策略区分
-        // 优先使用会话对应的 agentId，避免刚切换时 selectedAgentId 还未更新
         const strategyAgentId =
-          chatHistories.find((h) => h.id === sessionId)?.agentId || selectedAgentId;
+          chatHistories.find((h) => h.id === sid)?.agentId || selectedAgentId;
         const currentStrategy = agentList.find((a) => a.id === strategyAgentId)?.strategy;
         formattedMessages.forEach((msg) => {
           if (currentStrategy === 'commonExecuteStrategy') {
-            // commonExecuteStrategy：所有用户/AI历史只写入左侧思考面板
             if (msg.role === 'user') {
-              addMessage(msg.content);
+              addMessage(msg.content, false, sid);
             } else {
               addAIMessage(
                 { type: msg.type || '', subType: msg.subType || '', content: msg.content },
-                'thinking'
+                'thinking',
+                sid
               );
             }
           } else {
-            // 非 commonExecuteStrategy：保持原有逻辑（用户写入两面板，AI summary 写右侧，其余写左侧）
             if (msg.role === 'user') {
-              // 强制写入两面板，避免 setSessionId 的异步导致策略误判
-              addMessage(msg.content, true);
+              addMessage(msg.content, true, sid);
             } else if (msg.type === 'summary') {
               addAIMessage(
                 { type: msg.type || '', subType: msg.subType || '', content: msg.content },
-                'result'
+                'result',
+                sid
               );
             } else {
               addAIMessage(
                 { type: msg.type || '', subType: msg.subType || '', content: msg.content },
-                'thinking'
+                'thinking',
+                sid
               );
             }
           }
         });
-        // 更新历史记录中的消息
-        const updatedHistories = chatHistories.map((h) => {
-          if (h.id === sessionId) {
-            return { ...h, messages: formattedMessages };
-          }
-          return h;
-        });
 
-        setChatHistories(updatedHistories);
-        // 历史消息更新完成，标记渲染完成
+        // 更新历史记录中的消息（使用函数式更新，避免闭包捕获旧 chatHistories 覆盖 loadChatHistory 的结果）
+        setChatHistories((prev) =>
+          prev.map((h) => (h.id === sid ? { ...h, messages: formattedMessages } : h))
+        );
         setHistoryRendered(true);
       }
-      // 历史记录为空：也标记渲染完成以取消“加载中”提示
-      if (!sessionMessages || sessionMessages.length === 0) {
+      // 消息为空也标记渲染完成
+      if (!pageData || !pageData.messages || pageData.messages.length === 0) {
         setHistoryRendered(true);
       }
     } catch (error) {
       console.error('加载会话聊天记录失败:', error);
       Toast.error('加载会话聊天记录失败');
-      // 即使失败也标记为完成以允许占位提示显示
       setHistoryRendered(true);
     }
   };
@@ -755,27 +752,29 @@ export const AgentChatPage: React.FC = () => {
 
   // 创建新聊天
   const createNewChat = () => {
-    if (loading) {
-      Toast.info('任务执行中，无法新建会话');
-      return;
-    }
-    // 生成新的会话ID
-    const newSessionId = generateSessionId();
-    setSessionId(newSessionId);
+    // 保存当前会话状态（后台流式继续运行）
+    saveCurrentSessionState();
 
-    // 清空消息和面板
+    // 首次切换时提示
+    if (loading && !hasShownSwitchToastRef.current) {
+      hasShownSwitchToastRef.current = true;
+      Toast.info({ content: '旧会话将继续在后台运行', duration: 3 });
+    }
+
+    // 导航到根路径（新建对话）
+    navigate('/');
+
+    // 清空消息和面板，重置加载状态
+    setLoading(false);
     setInput('');
     setMessages([]);
     setThinkingMessages([]);
     setResultMessages([]);
-    setShowResultPanel(false); // 重置结果面板状态
-    setActiveTab('thinking'); // 切换到思考Tab
-    setSideBySideMode(false); // 重置为单面板模式
-    // 首次进入模式：不向左侧历史栏插入未命名会话
-    // 仅在真实发送消息后，通过 saveChatToHistory 生成历史
+    setShowResultPanel(false);
+    setActiveTab('thinking');
+    setSideBySideMode(false);
     setHistoryRendered(true);
     setIsNewChat(true);
-    // 新建对话也显示并保留顶部提示
     setShowIntroTip(true);
     // 新建会话默认选择普通问答（id=28），并根据其策略设置面板模式
     setSelectedAgentId('28');
@@ -784,42 +783,27 @@ export const AgentChatPage: React.FC = () => {
     if (strategy === 'commonExecuteStrategy') {
       setShowResultPanel(false);
     }
+
+    // 更新活跃会话指针
+    const newSid = generateSessionId();
+    setSessionId(newSid);
+    activeSessionIdRef.current = newSid;
   };
 
   // 加载特定聊天历史
   const loadChat = (chat: ChatHistory) => {
-    if (loading) {
-      Toast.info('任务执行中，无法切换会话');
-      return;
-    }
-    // 切换会话，历史尚未渲染
-    setHistoryRendered(false);
-    setIsNewChat(true);
+    if (chat.id === sessionId) return;
+    // 保存当前会话状态（后台流式继续运行）
+    saveCurrentSessionState();
 
-    if (chat.id !== currentSession) {
-      // 不是新聊天
-      setIsNewChat(false);
+    // 首次切换时提示
+    if (loading && !hasShownSwitchToastRef.current) {
+      hasShownSwitchToastRef.current = true;
+      Toast.info({ content: '旧会话将继续在后台运行', duration: 3 });
     }
 
-    // 清空思考和结果面板
-    setInput('');
-    setThinkingMessages([]);
-    setResultMessages([]);
-    // 根据智能体策略决定是否启用双面板
-    const strategy = agentList.find((a) => a.id === chat.agentId)?.strategy;
-    setSideBySideMode(strategy !== 'commonExecuteStrategy');
-    if (strategy === 'commonExecuteStrategy') {
-      // 强制关闭右侧结果面板
-      setShowResultPanel(false);
-    }
-    setActiveTab('thinking'); // 切换到思考Tab
-
-    // 先设置当前智能体为历史项解析出的 agentId，再加载会话详情
-    setSelectedAgentId(chat.agentId);
-    // 直接设置当前会话ID为历史会话ID，而不是创建新会话
-    setSessionId(chat.id);
-    loadSessionChat(chat.id);
-    setSelectedMaxStep(chat.maxStep);
+    // 通过 URL 导航切换会话
+    navigate(`/c/${chat.id}`);
   };
 
   // 发送消息
@@ -836,13 +820,14 @@ export const AgentChatPage: React.FC = () => {
       setShowAgentDropdown(true);
       return;
     }
-    // 首次发送后切换到正常界面
+    // 首次发送后切换到正常界面，并更新 URL
     if (isNewChat) {
       setIsNewChat(false);
-      // 首次会话不需要等待历史渲染，避免一直显示“加载中”
       if (!historyRendered) {
         setHistoryRendered(true);
       }
+      // 首次发送时导航到 /c/:sessionId，replace 避免回退到空白页
+      navigate(`/c/${sessionId}`, { replace: true });
     }
 
     const userMessage: ChatMessage = {
@@ -863,6 +848,21 @@ export const AgentChatPage: React.FC = () => {
     saveChatToHistory(updatedMessages);
 
     try {
+      // 捕获发送时的会话快照（避免闭包过期）
+      const targetSessionId = sessionId;
+      const targetAgentId = selectedAgentId;
+      const abortController = new AbortController();
+
+      // 在 SessionMap 中初始化该会话状态（若不存在）
+      if (!sessionMapRef.current.get(targetSessionId)) {
+        sessionMapRef.current.set(targetSessionId, createEmptySessionState(targetSessionId));
+      }
+      sessionMapRef.current.update(targetSessionId, {
+        loading: true,
+        agentId: targetAgentId,
+        abortController,
+      });
+
       // 发送POST请求
       const response = await AiAgentService.chat(
         selectedAgentId,
@@ -878,6 +878,9 @@ export const AgentChatPage: React.FC = () => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
+      // 保存 reader 到 SessionMap（用于停止按钮）
+      sessionMapRef.current.update(targetSessionId, { reader });
+
       let buffer = ''; // 用于存储不完整的行
 
       const processStream = async () => {
@@ -886,20 +889,29 @@ export const AgentChatPage: React.FC = () => {
             const { done, value } = await reader.read();
 
             if (done) {
-              // 流结束
-              setLoading(false);
+              // 流结束 → 更新 SessionMap
+              sessionMapRef.current.update(targetSessionId, {
+                loading: false,
+                reader: null,
+                abortController: null,
+                lastActiveTime: Date.now(),
+              });
+              // 仅当前活跃会话才更新 React 状态
+              if (activeSessionIdRef.current === targetSessionId) {
+                setLoading(false);
+              }
               return;
             }
 
+            // 检查是否已被中止
+            if (abortController.signal.aborted) return;
+
             // 解码数据块
             const chunk = decoder.decode(value, { stream: true });
-
-            // 将新数据添加到缓冲区
             buffer += chunk;
 
             // 处理完整的行
             const lines = buffer.split('\n');
-            // 保留最后一个可能不完整的行
             buffer = lines.pop() || '';
 
             for (let line of lines) {
@@ -908,13 +920,12 @@ export const AgentChatPage: React.FC = () => {
 
                 if (data && data !== '[DONE]') {
                   try {
-                    // 解析JSON或字符串
                     const parsed: unknown = JSON.parse(data);
-                    const currentStrategy = agentList.find(
-                      (a) => a.id === selectedAgentId
+                    // 使用 ref 获取最新的 agentList（避免闭包过期）
+                    const currentStrategy = agentListRef.current.find(
+                      (a) => a.id === targetAgentId
                     )?.strategy;
 
-                    // 统一提取内容
                     let msg: StageMessage;
                     if (typeof parsed === 'string') {
                       msg = { type: '', subType: '', content: parsed };
@@ -939,36 +950,36 @@ export const AgentChatPage: React.FC = () => {
                       msg = { type: '', subType: '', content: String(parsed ?? '') };
                     }
 
-                    // 根据策略分发到面板
+                    // 根据策略分发到面板（传入 targetSessionId 实现会话隔离）
                     if (currentStrategy === 'commonExecuteStrategy') {
-                      addAIMessage(msg, 'thinking');
+                      addAIMessage(msg, 'thinking', targetSessionId);
                     } else {
                       if (msg.type === 'summary') {
-                        addAIMessage(msg, 'result');
+                        addAIMessage(msg, 'result', targetSessionId);
                       } else {
-                        addAIMessage(msg, 'thinking');
+                        addAIMessage(msg, 'thinking', targetSessionId);
                       }
                     }
                   } catch (e) {
-                    // 非JSON：作为纯文本事件处理
-                    const currentStrategy = agentList.find(
-                      (a) => a.id === selectedAgentId
-                    )?.strategy;
                     const msg: StageMessage = { type: '', subType: '', content: data };
-                    if (currentStrategy === 'commonExecuteStrategy') {
-                      addAIMessage(msg, 'thinking');
-                    } else {
-                      addAIMessage(msg, 'thinking');
-                    }
+                    addAIMessage(msg, 'thinking', targetSessionId);
                   }
                 }
               }
             }
           }
-        } catch (error) {
+        } catch (error: any) {
+          if (error?.name === 'AbortError') return; // 主动停止，不报错
           console.error('读取流数据错误:', error);
-          setLoading(false);
-          Toast.error('连接中断，请重试');
+          sessionMapRef.current.update(targetSessionId, {
+            loading: false,
+            reader: null,
+            abortController: null,
+          });
+          if (activeSessionIdRef.current === targetSessionId) {
+            setLoading(false);
+            Toast.error('连接中断，请重试');
+          }
         }
       };
 
@@ -980,9 +991,9 @@ export const AgentChatPage: React.FC = () => {
     }
   };
 
-  // 添加AI消息
-  const addAIMessage = (data: StageMessage, panel: 'thinking' | 'result') => {
-    // 规范化内容，避免 marked 接收到 undefined/null
+  // 添加AI消息（会话感知：targetSessionId 指定目标会话，默认当前活跃会话）
+  const addAIMessage = (data: StageMessage, panel: 'thinking' | 'result', targetSessionId?: string) => {
+    const sid = targetSessionId || sessionId;
     const safeContent =
       typeof data.content === 'string'
         ? data.content
@@ -995,58 +1006,79 @@ export const AgentChatPage: React.FC = () => {
       content: safeContent,
     };
 
-    if (panel === 'thinking') {
-      setThinkingMessages((prev) => [...prev, normalized]);
-      setTimeout(() => scrollToBottom(thinkingPanelRef), 100);
-    } else {
-      setResultMessages((prev) => [...prev, normalized]);
-      setTimeout(() => scrollToBottom(resultPanelRef), 100);
-
-      // 当收到结果时，显示结果面板并切换到左右并列模式
-      if (!showResultPanel) {
-        setShowResultPanel(true);
-        setSideBySideMode(true); // 切换到左右并列模式
+    // 始终更新 Session Map（保证后台会话数据不丢失）
+    const sessionState = sessionMapRef.current.get(sid);
+    if (sessionState) {
+      if (panel === 'thinking') {
+        sessionMapRef.current.update(sid, {
+          thinkingMessages: [...sessionState.thinkingMessages, normalized],
+        });
+      } else {
+        sessionMapRef.current.update(sid, {
+          resultMessages: [...sessionState.resultMessages, normalized],
+          showResultPanel: true,
+          sideBySideMode: true,
+        });
       }
+    }
 
-      // // 添加到消息列表
-      // const aiMessage: ChatMessage = {
-      //   role: 'ai',
-      //   content,
-      //   timestamp: Date.now()
-      // };
-
-      // setMessages(prev => {
-      //   const updated = [...prev, aiMessage];
-      //   saveChatToHistory(updated);
-      //   return updated;
-      // });
+    // 仅当前活跃会话触发 React 重渲染
+    if (activeSessionIdRef.current === sid) {
+      if (panel === 'thinking') {
+        setThinkingMessages((prev) => [...prev, normalized]);
+        setTimeout(() => scrollToBottom(thinkingPanelRef), 100);
+      } else {
+        setResultMessages((prev) => [...prev, normalized]);
+        setTimeout(() => scrollToBottom(resultPanelRef), 100);
+        if (!showResultPanel) {
+          setShowResultPanel(true);
+          setSideBySideMode(true);
+        }
+      }
     }
   };
 
-  // 添加用户消息
-  const addMessage = (content: string, forceWriteBoth?: boolean) => {
+  // 添加用户消息（会话感知）
+  const addMessage = (content: string, forceWriteBoth?: boolean, targetSessionId?: string) => {
+    const sid = targetSessionId || sessionId;
     const userMessage = {
       type: 'user',
       subType: 'query',
       content,
     };
-    // 优先根据当前会话ID在历史中找到 agentId，避免刚切换时使用旧的 selectedAgentId
+    // 优先根据目标会话ID在历史中找到 agentId
     const strategyAgentId =
-      chatHistories.find((h) => h.id === sessionId)?.agentId || selectedAgentId;
-    const currentStrategy = agentList.find((a) => a.id === strategyAgentId)?.strategy;
-    // 当策略为 commonExecuteStrategy 时，不向第二面板写入用户消息（除非显式要求写入两面板）
-    if (currentStrategy === 'commonExecuteStrategy' && !forceWriteBoth) {
-      setThinkingMessages((prev) => [...prev, userMessage]);
-      setTimeout(() => {
-        scrollToBottom(thinkingPanelRef);
-      }, 100);
-    } else {
-      setThinkingMessages((prev) => [...prev, userMessage]);
-      setResultMessages((prev) => [...prev, userMessage]);
-      setTimeout(() => {
-        scrollToBottom(thinkingPanelRef);
-        scrollToBottom(resultPanelRef);
-      }, 100);
+      chatHistories.find((h) => h.id === sid)?.agentId || selectedAgentId;
+    const currentStrategy = agentListRef.current.find((a) => a.id === strategyAgentId)?.strategy;
+
+    // 更新 Session Map
+    const sessionState = sessionMapRef.current.get(sid);
+    if (sessionState) {
+      if (currentStrategy === 'commonExecuteStrategy' && !forceWriteBoth) {
+        sessionMapRef.current.update(sid, {
+          thinkingMessages: [...sessionState.thinkingMessages, userMessage],
+        });
+      } else {
+        sessionMapRef.current.update(sid, {
+          thinkingMessages: [...sessionState.thinkingMessages, userMessage],
+          resultMessages: [...sessionState.resultMessages, userMessage],
+        });
+      }
+    }
+
+    // 仅当前活跃会话触发 React 重渲染
+    if (activeSessionIdRef.current === sid) {
+      if (currentStrategy === 'commonExecuteStrategy' && !forceWriteBoth) {
+        setThinkingMessages((prev) => [...prev, userMessage]);
+        setTimeout(() => { scrollToBottom(thinkingPanelRef); }, 100);
+      } else {
+        setThinkingMessages((prev) => [...prev, userMessage]);
+        setResultMessages((prev) => [...prev, userMessage]);
+        setTimeout(() => {
+          scrollToBottom(thinkingPanelRef);
+          scrollToBottom(resultPanelRef);
+        }, 100);
+      }
     }
   };
 
@@ -1057,30 +1089,69 @@ export const AgentChatPage: React.FC = () => {
     }
   };
 
-  // 渲染包含 Drawio 的内容
+  // 提取思考内容（兼容 <think ...>...</think > 和 <thinking>...</thinking>）
+  const extractThinkingContent = (content: string): { thinkingParts: string[]; cleanContent: string } => {
+    const thinkRegex = /<think[^>]*>([\s\S]*?)<\/think\s*>|<thinking>([\s\S]*?)<\/thinking>/gi;
+    const thinkingParts: string[] = [];
+    // 先收集思考内容，再从原文中移除
+    let match: RegExpExecArray | null;
+    while ((match = thinkRegex.exec(content)) !== null) {
+      thinkingParts.push((match[1] || match[2] || '').trim());
+    }
+    const cleanContent = content.replace(thinkRegex, '').trim();
+    return { thinkingParts, cleanContent };
+  };
+
+  // 渲染思考折叠块
+  const renderThinkingBlock = (text: string, index: number) => (
+    <details key={`thinking-${index}`} className="ai-thinking-block">
+      <summary className="ai-thinking-summary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ai-thinking-icon">
+          <path d="M12 2a8 8 0 0 0-8 8c0 3.1 1.8 5.8 4.4 7.1.4.2.6.6.6 1V20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-1.9c0-.4.2-.8.6-1A8.001 8.001 0 0 0 12 2z"/>
+          <line x1="10" y1="22" x2="14" y2="22"/>
+        </svg>
+        <span>思考过程</span>
+      </summary>
+      <div
+        className="ai-thinking-content markdown-content"
+        dangerouslySetInnerHTML={{ __html: marked(text) }}
+      />
+    </details>
+  );
+
+  // 渲染包含 Drawio 和思考内容的内容
   const renderContentWithDrawio = (content: string) => {
-    // 尝试去除包裹 XML 的 Markdown 代码块标记，避免残留的代码块标记被渲染成空框
-    // 匹配 ```xml (或无语言) ...XML... ```，并将代码块标记移除，保留 XML
-    const cleanedContent = content.replace(
+    // 1. 提取思考内容
+    const { thinkingParts, cleanContent } = extractThinkingContent(content);
+
+    // 2. 处理 Drawio 和普通 Markdown（使用清理后的内容）
+    const cleanedContent = cleanContent.replace(
       /```\w*\s*(<mxGraphModel[\s\S]*?<\/mxGraphModel>)\s*```/g,
       '$1'
     );
 
     const regex = /(<mxGraphModel[\s\S]*?<\/mxGraphModel>)/g;
     const parts = cleanedContent.split(regex);
-    return parts.map((part, index) => {
+    const mainParts = parts.map((part, index) => {
       if (part.trim().startsWith('<mxGraphModel')) {
-        return <DrawioViewer key={index} xml={part} />;
+        return <DrawioViewer key={`drawio-${index}`} xml={part} />;
       }
       if (!part || !part.trim()) return null;
       return (
         <div
-          key={index}
+          key={`md-${index}`}
           className="markdown-content"
           dangerouslySetInnerHTML={{ __html: marked(part) }}
         />
       );
     });
+
+    // 3. 思考块放在正文前面（可折叠）
+    const thinkingBlocks = thinkingParts.map((text, i) =>
+      text ? renderThinkingBlock(text, i) : null
+    );
+
+    return [...thinkingBlocks, ...mainParts];
   };
 
   // 渲染消息
@@ -1163,33 +1234,89 @@ export const AgentChatPage: React.FC = () => {
   // 渲染聊天历史项
   const renderChatHistoryItem = (chat: ChatHistory) => {
     const isActive = chat.id === sessionId;
+    const isEditing = editingHistoryId === chat.id;
+    const isStreaming = sessionMapRef.current.isStreaming(chat.id);
     return (
       <div
         className={`chat-history-item ${isActive ? 'active' : ''}`}
         key={chat.id}
         onClick={() => {
-          if (loading) {
-            Toast.info('任务执行中，无法切换会话');
-            return;
-          }
-          // 若点击的是当前会话，则不进行加载
-          if (chat.id === sessionId) {
-            return;
-          }
+          if (chat.id === sessionId) return;
           loadChat(chat);
         }}
-        style={loading ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}
       >
-        <div className="chat-history-title">{chat.title || '未命名对话'}</div>
-        {!loading && (
+        {/* 流式状态脉冲指示器 */}
+        {isStreaming && <div className="session-streaming-indicator" />}
+        <div className="chat-history-info">
+          {isEditing ? (
+            <input
+              className="chat-history-title-input"
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const newTitle = editingTitle.trim();
+                  if (newTitle && newTitle !== chat.title) {
+                    const ok = await UserService.updateConversationTitle(chat.id, newTitle);
+                    if (ok) {
+                      setChatHistories((prev) =>
+                        prev.map((h) => (h.id === chat.id ? { ...h, title: newTitle } : h))
+                      );
+                      Toast.success('标题已更新');
+                    }
+                  }
+                  setEditingHistoryId(null);
+                } else if (e.key === 'Escape') {
+                  setEditingHistoryId(null);
+                }
+              }}
+              onBlur={async () => {
+                const newTitle = editingTitle.trim();
+                if (newTitle && newTitle !== chat.title) {
+                  const ok = await UserService.updateConversationTitle(chat.id, newTitle);
+                  if (ok) {
+                    setChatHistories((prev) =>
+                      prev.map((h) => (h.id === chat.id ? { ...h, title: newTitle } : h))
+                    );
+                  }
+                }
+                setEditingHistoryId(null);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+            />
+          ) : (
+            <div
+              className="chat-history-title"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (isGuest) return;
+                setEditingHistoryId(chat.id);
+                setEditingTitle(chat.title || '');
+              }}
+            >
+              {chat.title || '未命名对话'}
+            </div>
+          )}
+          <div className="chat-history-subtitle">
+            {chat.agentName && <span className="chat-history-agent-name">{chat.agentName}</span>}
+            <span className="chat-history-msg-count">
+              {chat.messageCount != null && chat.messageCount > 0
+                ? `${chat.messageCount} 条消息`
+                : '新对话'}
+            </span>
+          </div>
+        </div>
+        {!isStreaming && (
           <Popconfirm
             title="确定要删除这个会话吗？"
             content="删除后无法恢复，请谨慎操作"
             okText="删除"
             cancelText="取消"
             onConfirm={async () => {
-              if (loading) {
-                Toast.info('任务执行中，无法删除会话');
+              if (sessionMapRef.current.isStreaming(chat.id)) {
+                Toast.info('该会话正在执行中，请先停止生成');
                 return;
               }
               if (isGuest) {
@@ -1370,7 +1497,6 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                     className="new-chat-button"
                     icon={<IconEdit />}
                     onClick={createNewChat}
-                    style={loading ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}
                   >
                     新建对话
                   </Button>
@@ -1380,17 +1506,6 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                 <div className="chat-history-list">
                   {chatHistories && chatHistories.length > 0 ? (
                     [...chatHistories]
-                      .map((h, idx) => ({ h, idx }))
-                      .sort((a, b) => {
-                        const aHasTs = a.h.timestamp !== undefined ? 1 : 0;
-                        const bHasTs = b.h.timestamp !== undefined ? 1 : 0;
-                        if (aHasTs !== bHasTs) return bHasTs - aHasTs; // 有 timestamp 的在前
-                        if (a.h.timestamp !== undefined && b.h.timestamp !== undefined) {
-                          return (b.h.timestamp as number) - (a.h.timestamp as number); // 按时间倒序
-                        }
-                        return b.idx - a.idx; // 保持无 timestamp 的倒序顺序
-                      })
-                      .map(({ h }) => h)
                       .filter((h) =>
                         sidebarSearchText.trim() === ''
                           ? true
@@ -1866,19 +1981,18 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                         </div>
                       )}
 
-                      {/* 将发送按钮与标签行右侧对齐 */}
+                      {/* 发送/停止按钮：loading 时为停止，否则为发送 */}
                       <Button
-                        type="primary"
+                        type={loading ? 'danger' : 'primary'}
                         theme="solid"
                         className={`send-round action ${
-                          loading || !input.trim() ? 'disabled' : ''
-                        }`}
-                        onClick={sendMessage}
-                        loading={loading}
-                        disabled={!input.trim() || loading}
+                          !loading && !input.trim() ? 'disabled' : ''
+                        } ${loading ? 'stop-generation-btn' : ''}`}
+                        onClick={loading ? () => stopGeneration() : sendMessage}
+                        disabled={!loading && !input.trim()}
                         style={isGuest ? { cursor: 'not-allowed' } : undefined}
                       >
-                        ↑
+                        {loading ? '■' : '↑'}
                       </Button>
                     </div>
                   </div>
