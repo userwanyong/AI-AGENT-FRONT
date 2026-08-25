@@ -10,6 +10,7 @@ import './styles/index.css';
 
 import {
   LoginPage,
+  OAuthCallbackPage,
   AgentConfigPage,
   AgentListPage,
   ClientManagement,
@@ -20,6 +21,10 @@ import {
   PromptManagement,
   McpManagement,
   AgentChatPage,
+  AuthUserManagement,
+  AuthRoleManagement,
+  AuthPermissionManagement,
+  AuthLoginMethodManagement,
 } from './pages';
 
 // 统一的认证检查函数
@@ -193,6 +198,40 @@ const App: React.FC = () => {
     <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <Routes>
         <Route path="/login" element={<LoginRedirect />} />
+        {/* OAuth 登录回调（后端 302 携带令牌到本页 hash），公开页面 */}
+        <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+        <Route
+          path="/auth-user-management"
+          element={
+            <ProtectedRoute>
+              <AuthUserManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auth-role-management"
+          element={
+            <ProtectedRoute>
+              <AuthRoleManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auth-permission-management"
+          element={
+            <ProtectedRoute>
+              <AuthPermissionManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auth-login-method-management"
+          element={
+            <ProtectedRoute>
+              <AuthLoginMethodManagement />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/agent-config"
           element={

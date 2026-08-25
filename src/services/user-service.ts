@@ -17,10 +17,9 @@ export class UserService {
   private static readonly BASE_URL = API_ENDPOINTS.USER.BASE;
 
   /**
-   * 修改密码
+   * 修改密码（登录后，需校验旧密码）
    */
   static async updatePassword(payload: {
-    username: string;
     oldPassword: string;
     newPassword: string;
   }): Promise<ApiResponse<void>> {
@@ -40,22 +39,27 @@ export class UserService {
     }
   }
 
-  static async resetPassword(username: string): Promise<ApiResponse<void>> {
+  /**
+   * 设置密码（验证码自动注册用户首次设置，无需旧密码）
+   */
+  static async setPassword(newPassword: string): Promise<{success: boolean, message?: string}> {
     try {
-      const url = `${this.BASE_URL}${API_ENDPOINTS.USER.RESET_PWD}?username=${encodeURIComponent(
-        username
-      )}`;
-      const response = await fetch(url, {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.SET_PWD}`, {
         method: 'PUT',
         headers: getDefaultHeaders(),
+        body: stringifySafely({ newPassword }),
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await parseResponseJsonSafely(response);
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true };
+      }
+      return { success: false, message: result.info || result.msg || '设置密码失败' };
     } catch (error) {
-      console.error('重置密码失败:', error);
-      throw error;
+      console.error('设置密码请求失败:', error);
+      return { success: false, message: '设置密码失败,请检查网络连接' };
     }
   }
 
@@ -263,30 +267,71 @@ export class UserService {
   }
 
   /**
-   * 发送邮箱登录验证码
-   * @param email 邮箱地址
-   * @returns Promise<{success: boolean, message?: string}>
+   * 查询已启用的登录方式编码（登录页动态渲染）
+   * 如 ["password", "email:smtp", "oauth:gitee", "oauth:github"]
    */
-  static async sendEmailCode(email: string): Promise<{success: boolean, message?: string}> {
+  static async getLoginMethods(): Promise<{success: boolean, data?: string[], message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.EMAIL_SEND_CODE}`, {
-        method: 'POST',
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.LOGIN_METHODS}`, {
+        method: 'GET',
         headers: getDefaultHeaders(),
-        body: stringifySafely({ email }),
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const result = await parseResponseJsonSafely(response);
-      // 后端返回格式: {code, info/msg, ...}
-      // code === '0000' 表示成功
+      if (result.code === '0000') {
+        return { success: true, data: result.data || [] };
+      }
+      return { success: false, message: result.info || result.msg || '获取登录方式失败' };
+    } catch (error) {
+      console.error('获取登录方式请求失败:', error);
+      return { success: false, message: '获取登录方式失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 账号密码登录
+   */
+  static async loginByPassword(username: string, password: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.LOGIN}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ username, password }),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data };
+      }
+      return { success: false, message: result.info || result.msg || '登录失败' };
+    } catch (error) {
+      console.error('登录请求失败:', error);
+      return { success: false, message: '登录失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 发送登录验证码（邮箱/手机）
+   */
+  static async sendLoginCode(target: string): Promise<{success: boolean, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.CODE_SEND}`, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: stringifySafely({ target }),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
         return { success: true };
-      } else {
-        return { success: false, message: result.info || result.msg || '发送验证码失败' };
       }
+      return { success: false, message: result.info || result.msg || '发送验证码失败' };
     } catch (error) {
       console.error('发送验证码请求失败:', error);
       return { success: false, message: '发送验证码失败,请检查网络连接' };
@@ -294,209 +339,252 @@ export class UserService {
   }
 
   /**
-   * 邮箱验证码登录（自动注册）
-   * @param email 邮箱地址
-   * @param code 验证码
-   * @returns Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}>
+   * 验证码登录（自动注册）
    */
-  static async loginByEmail(email: string, code: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
+  static async loginByCode(target: string, code: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.EMAIL_LOGIN}`, {
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.CODE_LOGIN}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: stringifySafely({ email, code }),
+        body: stringifySafely({ target, code }),
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const result = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
         return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.info || result.msg || '登录失败' };
       }
+      return { success: false, message: result.info || result.msg || '登录失败' };
     } catch (error) {
-      console.error('邮箱登录请求失败:', error);
+      console.error('验证码登录请求失败:', error);
       return { success: false, message: '登录失败,请检查网络连接' };
     }
   }
 
   /**
-   * 邮箱密码登录
-   * @param email 邮箱地址
-   * @param password 密码
-   * @returns Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}>
+   * 获取当前登录用户信息
    */
-  static async loginByEmailPassword(email: string, password: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
+  static async getCurrentUser(): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}/email/pwd/login`, {
-        method: 'POST',
+      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.CURRENT_USER}`, {
+        method: 'GET',
         headers: getDefaultHeaders(),
-        body: stringifySafely({ email, password }),
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const result = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
         return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.info || result.msg || '登录失败' };
       }
+      return { success: false, message: result.info || result.msg || '获取用户信息失败' };
     } catch (error) {
-      console.error('邮箱密码登录请求失败:', error);
-      return { success: false, message: '登录失败,请检查网络连接' };
+      console.error('获取用户信息请求失败:', error);
+      return { success: false, message: '获取用户信息失败,请检查网络连接' };
     }
   }
 
   /**
-   * 初始化邮箱用户密码（首次登录）
-   * @param email 邮箱地址
-   * @param password 密码
-   * @param confirmPassword 确认密码
-   * @returns Promise<{success: boolean, data?: any, message?: string}>
+   * OAuth 登录入口地址（浏览器直接跳转，后端 302 到提供方授权页）
    */
-  static async initEmailPassword(email: string, password: string, confirmPassword: string): Promise<{success: boolean, data?: any, message?: string}> {
-    try {
-      const response = await fetch(`${this.BASE_URL}/email/init/pwd`, {
-        method: 'POST',
-        headers: getDefaultHeaders(),
-        body: stringifySafely({ email, password, confirmPassword }),
-      });
+  static getOAuthAuthorizeUrl(provider: string): string {
+    return `${this.BASE_URL}/oauth/${encodeURIComponent(provider)}/authorize`;
+  }
 
+  // ==================== 个人中心 ====================
+
+  /**
+   * 获取当前用户档案（认证服务信息 + 第三方绑定）
+   */
+  static async getUserProfile(): Promise<{success: boolean, data?: UserProfileResponseDTO, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/profile`, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const result = await parseResponseJsonSafely(response);
-      
       if (result.code === '0000') {
         return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.msg || '密码初始化失败' };
       }
+      return { success: false, message: result.info || result.msg || '获取个人档案失败' };
     } catch (error) {
-      console.error('初始化密码请求失败:', error);
-      return { success: false, message: '密码初始化失败,请检查网络连接' };
+      console.error('获取个人档案失败:', error);
+      return { success: false, message: '获取个人档案失败,请检查网络连接' };
     }
   }
 
   /**
-   * 验证管理员用户登录
-   * @param loginData 登录数据
-   * @returns Promise<{success: boolean, data?: any, message?: string}> 登录结果
+   * 更新当前用户资料（昵称/真实姓名/性别/生日）
    */
-  static async validateAdminUserLogin(loginData: AdminUserLoginRequestDTO): Promise<{success: boolean, data?: any, message?: string}> {
+  static async updateProfile(payload: {
+    nickname?: string;
+    realName?: string;
+    gender?: number;
+    birthday?: string;
+  }): Promise<{success: boolean, message?: string}> {
     try {
-      const response = await fetch(`${API_ENDPOINTS.USER.BASE}${API_ENDPOINTS.ADMIN_USER.VALIDATE_LOGIN}`, {
-        method: 'POST',
+      const response = await fetch(`${this.BASE_URL}/profile`, {
+        method: 'PUT',
         headers: getDefaultHeaders(),
-        body: stringifySafely(loginData),
+        body: stringifySafely(payload),
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const result = await parseResponseJsonSafely(response) as ApiResponse<any> & { info?: string };
-
+      const result = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
-        return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.info || result.msg || '登录失败' };
+        return { success: true };
       }
+      return { success: false, message: result.info || result.msg || '资料更新失败' };
     } catch (error) {
-      console.error('登录验证请求失败:', error);
-      return { success: false, message: '登录失败,请检查网络连接' };
+      console.error('资料更新失败:', error);
+      return { success: false, message: '资料更新失败,请检查网络连接' };
     }
   }
 
   /**
-   * 生成微信小程序登录二维码
-   * @returns Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}>
+   * 上传头像（转存认证服务 OSS 并持久化），返回头像 URL
    */
-  static async generateWechatMiniProgramQrCode(): Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}> {
+  static async uploadProfileAvatar(file: File): Promise<{success: boolean, data?: string, message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.WECHAT_QRCODE_GENERATE}`, {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`${this.BASE_URL}/profile/avatar`, {
         method: 'POST',
-        headers: getDefaultHeaders(),
+        headers: getUploadHeaders(),
+        body: formData,
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const result = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
         return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.info || result.msg || '生成二维码失败' };
       }
+      return { success: false, message: result.info || result.msg || '头像上传失败' };
     } catch (error) {
-      console.error('生成微信二维码请求失败:', error);
-      return { success: false, message: '生成二维码失败,请检查网络连接' };
+      console.error('头像上传失败:', error);
+      return { success: false, message: '头像上传失败,请检查网络连接' };
     }
   }
 
   /**
-   * 查询微信小程序登录二维码状态
-   * @param qrcodeId 二维码ID
-   * @returns Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}>
+   * 绑定邮箱/手机号（先对新目标调用 sendLoginCode 发送验证码）
    */
-  static async queryWechatMiniProgramQrCodeStatus(qrcodeId: string): Promise<{success: boolean, data?: WechatMiniProgramQrCodeResponseDTO, message?: string}> {
+  static async bindContact(kind: 'email' | 'phone', target: string, code: string): Promise<{success: boolean, message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.WECHAT_QRCODE_STATUS}`, {
+      const response = await fetch(`${this.BASE_URL}/profile/bind-${kind}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: stringifySafely({ qrcodeId }),
+        body: stringifySafely({ target, code }),
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const result = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
-        return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.info || result.msg || '查询状态失败' };
+        return { success: true };
       }
+      return { success: false, message: result.info || result.msg || '绑定失败' };
     } catch (error) {
-      console.error('查询二维码状态请求失败:', error);
-      return { success: false, message: '查询状态失败,请检查网络连接' };
+      console.error('绑定失败:', error);
+      return { success: false, message: '绑定失败,请检查网络连接' };
     }
   }
 
   /**
-   * 微信小程序二维码登录
-   * @param ticket 登录票据
-   * @returns Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}>
+   * 解绑邮箱/手机号
    */
-  static async loginByWechatMiniProgramQrCode(ticket: string): Promise<{success: boolean, data?: UserLoginResponseDTO, message?: string}> {
+  static async unbindContact(kind: 'email' | 'phone'): Promise<{success: boolean, message?: string}> {
     try {
-      const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.WECHAT_QRCODE_LOGIN}`, {
-        method: 'POST',
+      const response = await fetch(`${this.BASE_URL}/profile/${kind}`, {
+        method: 'DELETE',
         headers: getDefaultHeaders(),
-        body: stringifySafely({ ticket }),
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true };
+      }
+      return { success: false, message: result.info || result.msg || '解绑失败' };
+    } catch (error) {
+      console.error('解绑失败:', error);
+      return { success: false, message: '解绑失败,请检查网络连接' };
+    }
+  }
 
+  /**
+   * 第三方账号绑定列表
+   */
+  static async getOAuthBindings(): Promise<{success: boolean, data?: OAuthBindingResponseDTO[], message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/profile/oauth-bindings`, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true, data: result.data || [] };
+      }
+      return { success: false, message: result.info || result.msg || '获取绑定列表失败' };
+    } catch (error) {
+      console.error('获取绑定列表失败:', error);
+      return { success: false, message: '获取绑定列表失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 第三方账号绑定授权 URL（浏览器跳转后回调自动完成绑定）
+   */
+  static async getOAuthBindUrl(provider: string): Promise<{success: boolean, data?: string, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/profile/oauth-bind-url/${encodeURIComponent(provider)}`, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const result = await parseResponseJsonSafely(response);
       if (result.code === '0000') {
         return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.info || result.msg || '登录失败' };
       }
+      return { success: false, message: result.info || result.msg || '获取绑定地址失败' };
     } catch (error) {
-      console.error('微信登录请求失败:', error);
-      return { success: false, message: '登录失败,请检查网络连接' };
+      console.error('获取绑定地址失败:', error);
+      return { success: false, message: '获取绑定地址失败,请检查网络连接' };
+    }
+  }
+
+  /**
+   * 解绑第三方账号
+   */
+  static async unbindOAuth(provider: string): Promise<{success: boolean, message?: string}> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/profile/oauth-binding/${encodeURIComponent(provider)}`, {
+        method: 'DELETE',
+        headers: getDefaultHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await parseResponseJsonSafely(response);
+      if (result.code === '0000') {
+        return { success: true };
+      }
+      return { success: false, message: result.info || result.msg || '解绑失败' };
+    } catch (error) {
+      console.error('解绑失败:', error);
+      return { success: false, message: '解绑失败,请检查网络连接' };
     }
   }
 
@@ -530,14 +618,15 @@ export class UserService {
   }
 
   /**
-   * 登出
-   * @returns Promise<{success: boolean, message?: string}>
+   * 登出（同时传 refreshToken 使其一并失效）
    */
   static async logout(): Promise<{success: boolean, message?: string}> {
     try {
+      const refreshToken = localStorage.getItem('refreshToken') || '';
       const response = await fetch(`${this.BASE_URL}${API_ENDPOINTS.USER.LOGOUT}`, {
         method: 'POST',
         headers: getDefaultHeaders(),
+        body: stringifySafely({ refreshToken }),
       });
 
       if (!response.ok) {
@@ -572,41 +661,12 @@ export interface UserInfoResponseDTO {
 
 export interface UserInfoRequestDTO extends UserInfoResponseDTO {}
 
-// 定义邮箱验证码请求数据类型
-export interface EmailCodeRequestDTO {
-  email: string;
-}
-
-// 定义邮箱登录请求数据类型
-export interface EmailLoginRequestDTO {
-  email: string;
-  code: string;
-}
-
-// 定义邮箱登录响应数据类型
-export interface EmailLoginResponseDTO {
-  id: number;
-  username: string;
-  status: number; // 0-正常 1-禁用
-  role: number; // 0-管理员 1-用户
-  avatar?: string;
-  createTime: string;
-  updateTime: string;
-  token: string;
-  first: boolean; // 是否首次登录
-}
-
-// 定义管理员登录请求数据类型
-export interface AdminUserLoginRequestDTO {
-  username: string;
-  password: string;
-}
-
 // 定义用户登录响应数据类型
 export interface UserLoginResponseDTO {
   id: number | string;
   username: string;
-  status: number; // 0-正常 1-禁用
+  email?: string;
+  status: number; // 1-正常 0-禁用
   role: number; // 0-管理员 1-用户
   avatar?: string;
   createTime: string;
@@ -618,30 +678,37 @@ export interface UserLoginResponseDTO {
   isFirst: boolean; // 是否首次登录
 }
 
-// 定义微信小程序二维码响应数据类型
-export interface WechatMiniProgramQrCodeResponseDTO {
-  qrcodeId: string;       // 二维码ID
-  qrCodeUrl: string;      // 二维码图片URL
-  customLogoUrl?: string; // 自定义Logo URL
-  status: string;         // 状态: WAITING-等待扫码, SCANNED-已扫码待确认, CONFIRMED-已确认, EXPIRED-已过期, CANCELLED-已取消
-  ticket?: string;        // 登录票据（确认后才有）
-  displayName?: string;   // 用户昵称（扫码后显示）
-  photo?: string;         // 用户头像（扫码后显示）
-}
-
-// 定义微信小程序二维码状态查询请求类型
-export interface WechatMiniProgramQrCodeStatusRequestDTO {
-  qrcodeId: string;
-}
-
-// 定义微信小程序二维码登录请求类型
-export interface WechatMiniProgramQrCodeLoginRequestDTO {
-  ticket: string;
-}
-
 // 定义刷新Token请求类型
 export interface RefreshTokenRequestDTO {
   refreshToken: string;
+}
+
+// 第三方账号绑定
+export interface OAuthBindingResponseDTO {
+  id: number | string;
+  provider: string; // gitee / github
+  providerUid: string;
+  createdAt: number;
+}
+
+// 个人中心用户档案
+export interface UserProfileResponseDTO {
+  id: number | string;
+  username: string;
+  account: string; // 登录账号展示（邮箱优先，其次用户名）
+  email: string;
+  emailVerified: boolean;
+  phone: string;
+  phoneVerified: boolean;
+  nickname: string;
+  realName: string;
+  gender: number; // 0-未知 1-男 2-女
+  birthday: string;
+  avatar: string;
+  status: number;
+  roles: string[];
+  permissions: string[];
+  oauthBindings: OAuthBindingResponseDTO[];
 }
 
 // 会话列表响应 DTO（对应后端 ConversationResponseDTO）

@@ -33,6 +33,7 @@ import {
   AiAgentDrawConfigQueryRequestDTO,
 } from '../services/ai-agent-draw-service';
 import { AdminUserService } from '../services/admin-user-service';
+import { logoutAndRedirect } from '../utils/logout';
 import { AiAgentService } from '../services';
 import { Sidebar, Header } from '../components/layout';
 
@@ -168,17 +169,15 @@ export const AgentListPage: React.FC<AgentListPageProps> = ({
         navigate('/client-tool-mcp-management');
         break;
       default:
-        navigate(path);
+        // 未知 key 按绝对路径导航（相对路径会拼接到当前路由导致 404 兜底跳首页）
+        navigate('/' + path);
         break;
     }
   };
 
   // 处理退出登录
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userInfo');
-    localStorage.removeItem('isLoggedIn');
-    navigate('/login');
+    void logoutAndRedirect();
   };
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiAgentDrawConfigResponseDTO[]>([]);
