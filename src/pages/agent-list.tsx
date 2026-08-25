@@ -61,16 +61,17 @@ const ContentArea = styled(Content)`
 `;
 
 const PageHeader = styled.div`
-  margin-top: 14px;
-  margin-left: 14px;
-  border-bottom: 1px solid ${theme.colors.border.secondary};
-  padding-bottom: 14px;
+  margin: 0 20px;
+  padding: 16px 0 12px;
+  border-bottom: 1px solid #eceef6;
 `;
 
 const SearchSection = styled(Card)`
-  margin: ${theme.spacing.lg} ${theme.spacing.lg} 0;
+  margin: 12px 20px 0;
+  border-radius: 12px;
+
   .semi-card-body {
-    padding: ${theme.spacing.lg};
+    padding: 12px 16px;
   }
 `;
 
@@ -89,7 +90,7 @@ const SearchRow = styled.div`
 
 const TableContainer = styled.div`
   flex: 1;
-  margin: 0 ${theme.spacing.lg} ${theme.spacing.lg};
+  margin: 12px 20px 20px;
   display: flex;
   flex-direction: column;
 `;

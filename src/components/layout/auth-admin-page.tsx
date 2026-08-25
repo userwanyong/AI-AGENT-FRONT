@@ -31,22 +31,24 @@ const ContentArea = styled.div`
 
 const PageContainer = styled.div`
   flex: 1;
-  padding: 24px;
+  padding: 0 20px 20px;
   overflow-y: auto;
 `;
 
 const PageCard = styled.div`
-  background: ${theme.colors.bg.primary};
-  border-radius: ${theme.borderRadius.lg};
-  padding: 20px 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(30, 25, 80, 0.05);
+  padding: 16px 20px;
 `;
 
 const PageHeaderRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eceef6;
 `;
 
 export interface AuthAdminPageProps {

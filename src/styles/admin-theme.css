@@ -1,0 +1,163 @@
+/**
+ * 后台管理端全局主题
+ *
+ * 通过 body.admin-page 类按路由自动启用（见 app.tsx），
+ * 统一美化 Semi Design 控件：输入框 / 按钮 / 表格 / 卡片 / 分页 / 弹窗 / 标签等，
+ * 主题色与登录页、个人中心一致（靛紫 #6a5ae0）。
+ */
+
+/* ==================== 主题色变量 ==================== */
+body.admin-page {
+  --semi-color-primary: #6a5ae0;
+  --semi-color-primary-hover: #7d6ff0;
+  --semi-color-primary-active: #5a4bd0;
+  --semi-color-primary-light-default: #f0effe;
+  --semi-color-primary-light-hover: #e6e4fd;
+  --semi-color-primary-light-active: #ddd9fb;
+  --semi-color-focus-border: #6a5ae0;
+  background: #f5f6fa;
+}
+
+/* 内容区统一浅灰底，卡片白底 */
+body.admin-page .semi-layout-content {
+  background: #f5f6fa;
+}
+
+/* ==================== 卡片：去边框感，柔和圆角 ==================== */
+body.admin-page .semi-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(30, 25, 80, 0.05);
+}
+
+/* ==================== 输入框 / 下拉选择 ==================== */
+body.admin-page .semi-input-wrapper,
+body.admin-page .semi-select {
+  border-radius: 10px;
+  border: 1.5px solid #e3e5ef;
+  background: #fbfbfe;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.admin-page .semi-input-wrapper:hover,
+body.admin-page .semi-select:hover {
+  border-color: #cfcbf2;
+}
+
+body.admin-page .semi-input-wrapper:focus-within,
+body.admin-page .semi-select:focus-within,
+body.admin-page .semi-select-focus {
+  border-color: #6a5ae0 !important;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(106, 90, 224, 0.12);
+}
+
+body.admin-page .semi-input {
+  font-size: 13px;
+}
+
+/* 下拉面板圆角 */
+body.admin-page .semi-popover .semi-select-option-list {
+  border-radius: 10px;
+}
+body.admin-page .semi-select-option-selected {
+  color: #6a5ae0;
+  font-weight: 600;
+}
+
+/* ==================== 按钮 ==================== */
+body.admin-page .semi-button {
+  border-radius: 10px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+/* 主按钮（solid）：紫色 */
+body.admin-page .semi-button-primary.semi-button-solid:not(.semi-button-borderless):not(.semi-button-disabled) {
+  background: linear-gradient(135deg, #6a5ae0 0%, #4d7cf0 100%);
+  border: none;
+  box-shadow: 0 3px 10px rgba(93, 78, 216, 0.25);
+}
+body.admin-page .semi-button-primary.semi-button-solid:not(.semi-button-borderless):not(.semi-button-disabled):hover {
+  background: linear-gradient(135deg, #7d6ff0 0%, #5d8cf5 100%);
+  filter: brightness(1.05);
+  box-shadow: 0 5px 14px rgba(93, 78, 216, 0.35);
+}
+
+/* 浅色主按钮（light）：淡紫底紫字 */
+body.admin-page .semi-button-primary.semi-button-light:not(.semi-button-borderless):not(.semi-button-disabled) {
+  background: #f0effe;
+  color: #6a5ae0;
+  border: 1px solid #e0ddfa;
+}
+body.admin-page .semi-button-primary.semi-button-light:not(.semi-button-borderless):not(.semi-button-disabled):hover {
+  background: #e6e4fd;
+  color: #5a4bd0;
+}
+
+/* 危险按钮 */
+body.admin-page .semi-button-danger.semi-button-light:not(.semi-button-borderless):not(.semi-button-disabled) {
+  background: #fdeeee;
+  color: #d03030;
+  border: 1px solid #f5d5d5;
+}
+body.admin-page .semi-button-danger.semi-button-light:not(.semi-button-borderless):not(.semi-button-disabled):hover {
+  background: #fbe0e0;
+}
+
+/* ==================== 表格 ==================== */
+body.admin-page .semi-table-thead > .semi-table-row > .semi-table-row-head {
+  background: #f7f8fc;
+  color: #4a4f68;
+  font-weight: 600;
+  border-bottom: 1px solid #eceef6;
+}
+
+body.admin-page .semi-table-tbody > .semi-table-row:hover > .semi-table-row-cell {
+  background: #f6f5ff;
+}
+
+body.admin-page .semi-table-row-cell {
+  border-bottom: 1px solid #f2f3f8;
+  font-size: 13px;
+}
+
+/* 去掉表头竖分割线 */
+body.admin-page .semi-table-thead > .semi-table-row > .semi-table-row-head:not(:last-child) {
+  border-right: none;
+}
+
+/* ==================== 分页 ==================== */
+body.admin-page .semi-page-item {
+  border-radius: 8px;
+  border: 1px solid #e3e5ef;
+  transition: all 0.2s ease;
+}
+body.admin-page .semi-page-item:hover {
+  border-color: #6a5ae0;
+  color: #6a5ae0;
+}
+body.admin-page .semi-page-item-active {
+  background: linear-gradient(135deg, #6a5ae0 0%, #4d7cf0 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* ==================== 标签 ==================== */
+body.admin-page .semi-tag {
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* ==================== 弹窗 / 确认框 ==================== */
+body.admin-page .semi-modal-content {
+  border-radius: 14px;
+}
+body.admin-page .semi-modal-header .semi-modal-title {
+  font-weight: 600;
+}
+
+/* ==================== 开关 ==================== */
+body.admin-page .semi-switch-checked .semi-switch-knob {
+  background: #ffffff;
+}
