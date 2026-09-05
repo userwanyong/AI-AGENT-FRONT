@@ -5,7 +5,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const targetUrl = `${backendUrl}${req.url}`;
 
   try {
-    // 构建请求头，过滤掉 host 和 content-length
+    // 构建请求头，过滤掉 host 和 content-length（转发前按实际 body 重算）
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(req.headers)) {
       if (key.toLowerCase() !== 'host' && key.toLowerCase() !== 'content-length') {
@@ -13,10 +13,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // 原样透传原始请求体。注意：不要访问 req.body——Vercel 不会解析
+    // multipart/form-data，访问后拿不到内容；直接读原始流才能保留二进制 part。
+    let body: Buffer | undefined;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(chunk as Buffer);
+      body = Buffer.concat(chunks);
+      headers['content-length'] = String(body.length);
+    }
+
     const response = await fetch(targetUrl, {
       method: req.method,
       headers,
-      body: req.method !== 'GET' && req.method !== 'HEAD' && req.body ? JSON.stringify(req.body) : undefined,
+      body: body ? new Uint8Array(body) : undefined,
       redirect: 'manual',
     });
 
