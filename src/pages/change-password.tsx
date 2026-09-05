@@ -54,15 +54,9 @@ export const ChangePasswordPage: React.FC = () => {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-  const username = userInfo?.username || '';
 
   const onSubmit = async (values: Record<string, any>) => {
     try {
-      if (!username) {
-        Toast.error('当前未登录');
-        return;
-      }
       if (!values.oldPassword) {
         Toast.warning('请输入旧密码');
         return;
@@ -78,17 +72,17 @@ export const ChangePasswordPage: React.FC = () => {
       if (
         typeof values.newPassword !== 'string' ||
         values.newPassword.length < 6 ||
-        values.newPassword.length > 20
+        values.newPassword.length > 50
       ) {
-        Toast.error('新密码长度需为6-20位');
+        Toast.error('新密码长度需为6-50位');
         return;
       }
       if (
         typeof values.confirmPassword !== 'string' ||
         values.confirmPassword.length < 6 ||
-        values.confirmPassword.length > 20
+        values.confirmPassword.length > 50
       ) {
-        Toast.error('确认密码长度需为6-20位');
+        Toast.error('确认密码长度需为6-50位');
         return;
       }
       if (values.newPassword !== values.confirmPassword) {
@@ -97,7 +91,6 @@ export const ChangePasswordPage: React.FC = () => {
       }
       setLoading(true);
       const resp = await UserService.updatePassword({
-        username,
         oldPassword: values.oldPassword,
         newPassword: values.newPassword,
       });

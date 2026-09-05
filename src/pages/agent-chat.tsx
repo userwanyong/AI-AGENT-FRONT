@@ -2,6 +2,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SessionStateManager, createEmptySessionState } from '../utils/session-state';
 import type { ChatMessage, StageMessage } from '../utils/session-state';
+import { logoutAndRedirect } from '../utils/logout';
+import { PersonalCenter } from '../components/personal-center';
 
 import { marked } from 'marked';
 import hljs from 'highlight.js';
@@ -14,6 +16,7 @@ import {
   Popover,
   Avatar,
   Popconfirm,
+  Modal,
 } from '@douyinfe/semi-ui';
 import {
   IconChevronDown,
@@ -24,6 +27,7 @@ import {
   IconSearch,
   IconExit,
   IconSetting,
+  IconIdCard,
   IconDelete,
 } from '@douyinfe/semi-icons';
 
@@ -173,6 +177,10 @@ export const AgentChatPage: React.FC = () => {
   const thinkingPanelRef = useRef<HTMLDivElement>(null);
   const resultPanelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // 个人中心资料变更后刷新本地用户信息展示
+  const [, setUserVersion] = useState(0);
+  // 个人中心独立弹窗
+  const [personalCenterOpen, setPersonalCenterOpen] = useState(false);
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   // 游客模式：role=2 仅允许查看历史会话；允许新建与选智能体，但不能发送
   const isGuest = String((userInfo as any)?.role) === '2' || Number((userInfo as any)?.role) === 2;
@@ -267,26 +275,8 @@ export const AgentChatPage: React.FC = () => {
     }
   }, [sessionId]);
 
-  const handleLogout = () => {
-    try {
-      localStorage.removeItem('token');
-      localStorage.removeItem('userInfo');
-      localStorage.removeItem('isLoggedIn');
-      Toast.success('已退出登录');
-      window.location.href = '/login';
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const toLoginWithClear = () => {
-    try {
-      localStorage.removeItem('token');
-      localStorage.removeItem('userInfo');
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('chatHistory');
-    } catch (e) {}
-    window.location.href = '/login';
+    void logoutAndRedirect();
   };
 
   const GuestLoginToastContent: React.FC = () => (
@@ -1570,7 +1560,7 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
               <span>GitHub</span>
             </a>
 
-            {/* 侧边栏右下角用户头像与信息弹层 */}
+            {/* 侧边栏左下角用户头像与信息弹层（还原原样式，新增个人中心入口） */}
             <div className="sidebar-user-avatar">
               <Popover
                 trigger="hover"
@@ -1586,7 +1576,10 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                         <Tooltip content={userInfo?.username || '用户'} position="top">
                           <div className="sidebar-user-name">{userInfo?.username || '用户'}</div>
                         </Tooltip>
-                        <Tooltip content={`UID：${userInfo?.id ?? userInfo?.userId ?? userInfo?.uid ?? '-'}`} position="top">
+                        <Tooltip
+                          content={`UID：${userInfo?.id ?? userInfo?.userId ?? userInfo?.uid ?? '-'}`}
+                          position="top"
+                        >
                           <div className="sidebar-user-uid">
                             UID：{userInfo?.id ?? userInfo?.userId ?? userInfo?.uid ?? '-'}
                           </div>
@@ -1594,6 +1587,10 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                       </div>
                     </div>
                     <div className="sidebar-user-actions">
+                      <div className="user-action-item" onClick={() => setPersonalCenterOpen(true)}>
+                        <IconIdCard />
+                        <span>个人中心</span>
+                      </div>
                       <div
                         className="user-action-item"
                         onClick={() => {
@@ -1608,7 +1605,7 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                         <IconSetting />
                         <span>后台管理</span>
                       </div>
-                      <div className="user-action-item" onClick={handleLogout}>
+                      <div className="user-action-item" onClick={() => void logoutAndRedirect()}>
                         <IconExit />
                         <span>退出登录</span>
                       </div>
@@ -1621,6 +1618,17 @@ Overall, when implemented thoughtfully, AI serves as a powerful tool that enhanc
                 </Avatar>
               </Popover>
             </div>
+
+            {/* 个人中心弹窗（资料 / 账号绑定 / 安全设置） */}
+            <Modal
+              title="个人中心"
+              visible={personalCenterOpen}
+              footer={null}
+              onCancel={() => setPersonalCenterOpen(false)}
+              width={440}
+            >
+              <PersonalCenter onProfileChanged={() => setUserVersion((v) => v + 1)} />
+            </Modal>
           </div>
 
           {/* 首次进入仅展示居中的胶囊输入框 */}

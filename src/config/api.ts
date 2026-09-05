@@ -120,18 +120,23 @@ export const API_ENDPOINTS = {
 
   USER: {
     BASE: `${API_CONFIG.BASE_DOMAIN}/api/${API_CONFIG.API_VERSION}/user`,
-    UPDATE_PWD: '/pwd',
-    RESET_PWD: '/resetPwd',
-    INFO: '/info',
-    // 邮箱登录相关
-    EMAIL_SEND_CODE: '/email/send-code',
-    EMAIL_LOGIN: '/email/login',
+    // 登录方式（登录页动态渲染）
+    LOGIN_METHODS: '/login-methods',
+    // 密码登录
+    LOGIN: '/login',
+    // 验证码登录（邮箱/手机，自动注册）
+    CODE_SEND: '/code/send',
+    CODE_LOGIN: '/code/login',
+    // 令牌
     REFRESH_TOKEN: '/refresh',
     LOGOUT: '/logout',
-    // 微信小程序登录相关
-    WECHAT_QRCODE_GENERATE: '/wechat-mini-program/qrcode/generate',
-    WECHAT_QRCODE_STATUS: '/wechat-mini-program/qrcode/status',
-    WECHAT_QRCODE_LOGIN: '/wechat-mini-program/qrcode/login',
+    CURRENT_USER: '/me',
+    // 密码
+    UPDATE_PWD: '/pwd',
+    SET_PWD: '/password',
+    INFO: '/info',
+    // OAuth 登录（浏览器直接跳转，前端不直接调用 fetch）
+    OAUTH_AUTHORIZE: '/oauth/{provider}/authorize',
     // 会话管理相关
     SESSION_TITLE: '/session/{sessionId}/title',
     SESSION_MESSAGES: '/session/{sessionId}/messages',

@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import React, { useEffect } from 'react';
 
 import { createRoot } from 'react-dom/client';
@@ -7,9 +7,11 @@ import { Toast } from '@douyinfe/semi-ui';
 import { initVersionCheck, checkAuthVersionCompatibility } from './utils/version-handler';
 
 import './styles/index.css';
+import './styles/admin-theme.css';
 
 import {
   LoginPage,
+  OAuthCallbackPage,
   AgentConfigPage,
   AgentListPage,
   ClientManagement,
@@ -20,6 +22,10 @@ import {
   PromptManagement,
   McpManagement,
   AgentChatPage,
+  AuthUserManagement,
+  AuthRoleManagement,
+  AuthPermissionManagement,
+  AuthLoginMethodManagement,
 } from './pages';
 
 // 统一的认证检查函数
@@ -174,6 +180,36 @@ window.fetch = async (...args) => {
   return response;
 };
 
+// 后台管理路由列表：命中时启用 body.admin-page 全局主题（见 styles/admin-theme.css）
+const ADMIN_ROUTES = [
+  '/agent-list',
+  '/agent-config',
+  '/client-management',
+  '/ai-client-api-management',
+  '/advisor-management',
+  '/rag-order-management',
+  '/client-model-management',
+  '/client-system-prompt-management',
+  '/client-tool-mcp-management',
+  '/auth-user-management',
+  '/auth-role-management',
+  '/auth-permission-management',
+  '/auth-login-method-management',
+];
+
+/** 按当前路由切换后台主题类（须在 Router 内使用 useLocation） */
+const AdminThemeWatcher: React.FC = () => {
+  const location = useLocation();
+  useEffect(() => {
+    const isAdmin = ADMIN_ROUTES.some((r) => location.pathname.startsWith(r));
+    document.body.classList.toggle('admin-page', isAdmin);
+    return () => {
+      document.body.classList.remove('admin-page');
+    };
+  }, [location.pathname]);
+  return null;
+};
+
 const App: React.FC = () => {
   useEffect(() => {
     // 检查认证数据与版本兼容性（优先于渲染）
@@ -191,8 +227,43 @@ const App: React.FC = () => {
 
   return (
     <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+      <AdminThemeWatcher />
       <Routes>
         <Route path="/login" element={<LoginRedirect />} />
+        {/* OAuth 登录回调（后端 302 携带令牌到本页 hash），公开页面 */}
+        <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+        <Route
+          path="/auth-user-management"
+          element={
+            <ProtectedRoute>
+              <AuthUserManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auth-role-management"
+          element={
+            <ProtectedRoute>
+              <AuthRoleManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auth-permission-management"
+          element={
+            <ProtectedRoute>
+              <AuthPermissionManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auth-login-method-management"
+          element={
+            <ProtectedRoute>
+              <AuthLoginMethodManagement />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/agent-config"
           element={

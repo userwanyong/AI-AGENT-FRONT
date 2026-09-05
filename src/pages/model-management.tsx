@@ -70,15 +70,16 @@ const ModelManagementContainer = styled.div`
 `;
 
 const PageHeader = styled.div`
-  padding: ${theme.spacing.lg};
-  border-bottom: 1px solid ${theme.colors.border.secondary};
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #eceef6;
 `;
 
 const SearchSection = styled(Card)`
-  margin: ${theme.spacing.lg} ${theme.spacing.lg} 0;
+  margin: 12px 20px 0;
+  border-radius: 12px;
 
   .semi-card-body {
-    padding: ${theme.spacing.lg};
+    padding: 12px 16px;
   }
 `;
 
@@ -91,7 +92,7 @@ const SearchRow = styled.div`
 
 const TableContainer = styled.div`
   flex: 1;
-  margin: 0 ${theme.spacing.lg} ${theme.spacing.lg};
+  margin: 12px 20px 20px;
   display: flex;
   flex-direction: column;
 `;

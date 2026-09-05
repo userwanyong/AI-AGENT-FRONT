@@ -1,4 +1,5 @@
 export { default as LoginPage } from './login';
+export { default as OAuthCallbackPage } from './oauth-callback';
 export { DashboardPage } from './dashboard';
 export { AgentConfigPage } from './agent-config';
 export { AgentListPage } from './agent-list';
@@ -10,3 +11,7 @@ export { ModelManagement } from './model-management';
 export { PromptManagement } from './prompt-management';
 export { McpManagement } from './mcp-management';
 export { AgentChatPage } from './agent-chat';
+export { AuthUserManagement } from './auth-user-management';
+export { AuthRoleManagement } from './auth-role-management';
+export { AuthPermissionManagement } from './auth-permission-management';
+export { AuthLoginMethodManagement } from './auth-login-method-management';

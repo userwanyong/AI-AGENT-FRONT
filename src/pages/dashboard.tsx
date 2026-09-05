@@ -275,7 +275,8 @@ export const DashboardPage: React.FC = () => {
         navigate('/client-tool-mcp-management');
         break;
       default:
-        navigate(path);
+        // 未知 key 按绝对路径导航（相对路径会拼接到当前路由导致 404 兜底跳首页）
+        navigate('/' + path);
         break;
     }
   };

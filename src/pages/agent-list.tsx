@@ -33,6 +33,7 @@ import {
   AiAgentDrawConfigQueryRequestDTO,
 } from '../services/ai-agent-draw-service';
 import { AdminUserService } from '../services/admin-user-service';
+import { logoutAndRedirect } from '../utils/logout';
 import { AiAgentService } from '../services';
 import { Sidebar, Header } from '../components/layout';
 
@@ -60,16 +61,17 @@ const ContentArea = styled(Content)`
 `;
 
 const PageHeader = styled.div`
-  margin-top: 14px;
-  margin-left: 14px;
-  border-bottom: 1px solid ${theme.colors.border.secondary};
-  padding-bottom: 14px;
+  margin: 0 20px;
+  padding: 16px 0 12px;
+  border-bottom: 1px solid #eceef6;
 `;
 
 const SearchSection = styled(Card)`
-  margin: ${theme.spacing.lg} ${theme.spacing.lg} 0;
+  margin: 12px 20px 0;
+  border-radius: 12px;
+
   .semi-card-body {
-    padding: ${theme.spacing.lg};
+    padding: 12px 16px;
   }
 `;
 
@@ -88,7 +90,7 @@ const SearchRow = styled.div`
 
 const TableContainer = styled.div`
   flex: 1;
-  margin: 0 ${theme.spacing.lg} ${theme.spacing.lg};
+  margin: 12px 20px 20px;
   display: flex;
   flex-direction: column;
 `;
@@ -168,17 +170,15 @@ export const AgentListPage: React.FC<AgentListPageProps> = ({
         navigate('/client-tool-mcp-management');
         break;
       default:
-        navigate(path);
+        // 未知 key 按绝对路径导航（相对路径会拼接到当前路由导致 404 兜底跳首页）
+        navigate('/' + path);
         break;
     }
   };
 
   // 处理退出登录
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userInfo');
-    localStorage.removeItem('isLoggedIn');
-    navigate('/login');
+    void logoutAndRedirect();
   };
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<AiAgentDrawConfigResponseDTO[]>([]);

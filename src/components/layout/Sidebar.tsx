@@ -1,11 +1,11 @@
-import { useNavigate } from 'react-router-dom';
 import React from 'react';
 
 import styled from 'styled-components';
 import { Nav, Avatar, Popover, Button, Toast, IconButton } from '@douyinfe/semi-ui';
-import { IconApps, IconActivity, IconFolder, IconSidebar } from '@douyinfe/semi-icons';
+import { IconApps, IconActivity, IconFolder, IconSidebar, IconShield } from '@douyinfe/semi-icons';
 
 import { theme } from '../../styles/theme';
+import { logoutAndRedirect } from '../../utils/logout';
 
 interface SidebarProps {
   selectedKey?: string;
@@ -205,6 +205,29 @@ const menuItems = [
     ],
   },
   {
+    itemKey: 'auth',
+    text: '认证管理',
+    icon: <IconShield />,
+    items: [
+      {
+        itemKey: 'auth-user-management',
+        text: '用户管理',
+      },
+      {
+        itemKey: 'auth-role-management',
+        text: '角色管理',
+      },
+      {
+        itemKey: 'auth-permission-management',
+        text: '权限管理',
+      },
+      {
+        itemKey: 'auth-login-method-management',
+        text: '登录方式',
+      },
+    ],
+  },
+  {
     itemKey: 'experience',
     text: '体验链接',
     icon: <IconActivity />,
@@ -217,7 +240,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onToggle,
 }) => {
-  const navigate = useNavigate();
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   const rawRole = (userInfo as any)?.role;
   const roleCode = typeof rawRole === 'string' ? parseInt(rawRole, 10) : rawRole;
@@ -234,11 +256,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userInfo');
-    localStorage.removeItem('isLoggedIn');
     Toast.success('已退出登录');
-    navigate('/login');
+    void logoutAndRedirect();
   };
 
   return (

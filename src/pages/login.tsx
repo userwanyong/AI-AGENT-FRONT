@@ -1,1256 +1,725 @@
-import { useNavigate } from 'react-router-dom';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
 
 import styled from 'styled-components';
-import { Button, Form, Toast, Typography, Modal, Spin } from '@douyinfe/semi-ui';
-import { IconMail, IconLock, IconQrCode } from '@douyinfe/semi-icons';
+import { Button, Form, Toast, Typography, Modal } from '@douyinfe/semi-ui';
+import { IconMail, IconLock, IconUser, IconPhone } from '@douyinfe/semi-icons';
 
-import { theme } from '../styles/theme';
 import { UserService } from '../services';
-import type { WechatMiniProgramQrCodeResponseDTO, UserLoginResponseDTO } from '../services/user-service';
-import { Card } from '../components/common';
+import type { UserLoginResponseDTO } from '../services/user-service';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
-// 背景容器，使用绿色渐变与大形状贴近截图
+// ---------------------------------------------------------------------------
+// 登录方式编码 → 展示配置
+// 后端返回 auth-service 的方式编码：password / email:* / sms:* / oauth:gitee / oauth:github
+// ---------------------------------------------------------------------------
+
+type FormMethod = 'password' | 'email' | 'sms';
+
+interface MethodMeta {
+  tab: FormMethod;
+  label: string;
+  accountLabel: string;
+  accountField: string;
+  placeholder: string;
+  needCode: boolean;
+}
+
+const FORM_METHOD_META: Record<FormMethod, MethodMeta> = {
+  password: {
+    tab: 'password',
+    label: '密码登录',
+    accountLabel: '用户名',
+    accountField: 'username',
+    placeholder: '请输入用户名',
+    needCode: false,
+  },
+  email: {
+    tab: 'email',
+    label: '邮箱登录',
+    accountLabel: '邮箱地址',
+    accountField: 'target',
+    placeholder: '请输入邮箱地址',
+    needCode: true,
+  },
+  sms: {
+    tab: 'sms',
+    label: '手机登录',
+    accountLabel: '手机号',
+    accountField: 'target',
+    placeholder: '请输入手机号',
+    needCode: true,
+  },
+};
+
+const OAUTH_META: Record<string, { label: string; color: string }> = {
+  gitee: { label: 'Gitee', color: '#c71d23' },
+  github: { label: 'GitHub', color: '#24292f' },
+};
+
+const GiteeIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M11.98 2.4C6.5 2.4 2 5.27 2 9.09c0 2.58 2.06 4.82 5.1 6.1-.16.6-.5 2.04-.54 2.36-.06.44-.27.53.12.3.32-.19 1.1-.65 2.13-1.27.99.14 2.02.22 3.07.22 5.48 0 9.98-2.87 9.98-6.71 0-3.82-4.4-7.69-9.88-7.69zM7.53 10.9c-.35 0-.63-.28-.63-.63s.28-.64.63-.64.63.29.63.64-.28.63-.63.63zm2.83 0c-.35 0-.63-.28-.63-.63s.28-.64.63-.64.63.29.63.64-.28.63-.63.63zm2.83 0c-.35 0-.63-.28-.63-.63s.28-.64.63-.64.63.29.63.64-.28.63-.63.63zm2.98 0c-.35 0-.63-.28-.63-.63s.28-.64.63-.64.63.29.63.64-.28.63-.63.63z" />
+  </svg>
+);
+
+const GithubIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+  </svg>
+);
+
+// ---------------------------------------------------------------------------
+// 样式
+// ---------------------------------------------------------------------------
+
 const LoginContainer = styled.div`
-  height: 100vh; /* 固定为一屏高度 */
+  min-height: 100vh;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  isolation: isolate; /* 建立独立 stacking context，确保内容位于背景之上 */
-  padding: 0; /* 去掉外围内边距，避免出现滚动条 */
-  overflow: hidden; /* 隐藏任何可能的溢出 */
-  background: linear-gradient(135deg, #e8efe9 0%, #dfe7e1 40%, #dbe6df 100%);
+  padding: 24px;
+  overflow: hidden;
+  background: linear-gradient(140deg, #1b1f3b 0%, #2b2660 45%, #3d2f7d 75%, #241a4d 100%);
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: -12vh;
-    right: -18vw;
-    width: 60vw;
-    height: 60vh;
-    background: radial-gradient(
-      circle at 30% 30%,
-      #b7d0bd 0%,
-      #93b79c 60%,
-      rgba(147, 183, 156, 0.4) 100%
-    );
-    border-radius: 50%;
-    filter: blur(2px);
-    z-index: 0; /* 背景层级最低 */
-  }
-
+  /* 装饰光斑 */
+  &::before,
   &::after {
     content: '';
     position: absolute;
-    bottom: -18vh;
-    left: -18vw;
-    width: 55vw;
-    height: 55vh;
-    background: radial-gradient(
-      circle at 70% 70%,
-      #b7d0bd 0%,
-      #93b79c 60%,
-      rgba(147, 183, 156, 0.35) 100%
-    );
     border-radius: 50%;
-    filter: blur(2px);
-    z-index: 0; /* 背景层级最低 */
+    filter: blur(90px);
+    z-index: 0;
   }
-
-  @media (max-width: ${theme.breakpoints.sm}) {
-    /* 移动端同样保持无外边距，确保不产生滚动 */
-    padding: 0;
+  &::before {
+    width: 520px;
+    height: 520px;
+    top: -160px;
+    right: -120px;
+    background: rgba(124, 108, 255, 0.35);
+  }
+  &::after {
+    width: 460px;
+    height: 460px;
+    bottom: -180px;
+    left: -140px;
+    background: rgba(64, 166, 255, 0.25);
   }
 `;
 
-// 单卡片居中布局
-const LoginCard = styled(Card)`
-  width: 100%;
-  max-width: 420px;
-  border-radius: ${theme.borderRadius['2xl']};
-  box-shadow: ${theme.shadows.xl} !important;
-  border: none !important;
-  padding: ${theme.spacing.xl} !important; /* 缩减卡片内边距，减少整体高度 */
-  backdrop-filter: saturate(110%);
+const LoginCard = styled.div`
   position: relative;
-  z-index: 1; /* 保证卡片层级在背景之上 */
-  max-height: calc(100vh - 40px); /* 预留少量空间，保证一屏内不滚动 */
-  overflow: hidden; /* 卡片内部不出现滚动条 */
-
-  @media (max-width: ${theme.breakpoints.sm}) {
-    max-width: 360px;
-    padding: ${theme.spacing.lg} !important; /* 移动端进一步压缩 */
-    border-radius: ${theme.borderRadius.xl};
-    max-height: calc(100vh - 24px);
-  }
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: ${theme.spacing.base}; /* 压缩头部与表单的间距 */
+  z-index: 1;
+  width: 420px;
+  max-width: 100%;
+  padding: 40px 36px 32px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 24px 60px rgba(15, 12, 41, 0.45),
+    0 4px 16px rgba(15, 12, 41, 0.25);
 `;
 
 const Brand = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: ${theme.spacing.base};
+  gap: 6px;
+  margin-bottom: 28px;
 `;
 
-const BrandIcon = styled.div`
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: ${theme.colors.bg.primary};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: ${theme.shadows.lg};
-  img {
-    width: 24px;
-    height: 24px;
-  }
+const BrandLogo = styled.img`
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(59, 43, 158, 0.35);
 `;
 
 const BrandTitle = styled(Title)`
   margin: 0 !important;
-  font-size: ${theme.typography.fontSize.lg} !important;
-  @media (max-width: ${theme.breakpoints.sm}) {
-    font-size: ${theme.typography.fontSize.base} !important;
-  }
+  font-weight: 700 !important;
+  letter-spacing: 1px;
 `;
 
-const BroadcastWrapper = styled.div`
-  flex: 1;
-  margin-left: ${theme.spacing.base};
-  height: 24px;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
-  overflow: hidden;
-  position: relative;
-  padding: 0;
+const BrandSubtitle = styled(Text)`
+  color: #8a8fa8;
+`;
+
+const MethodTabs = styled.div`
   display: flex;
-  align-items: center;
-
-  @keyframes tickerScroll {
-    0% {
-      transform: translateX(0);
-    }
-    100% {
-      transform: translateX(-50%);
-    }
-  }
-
-  .track-wrap {
-    display: inline-flex;
-    gap: 24px;
-    white-space: nowrap;
-    will-change: transform;
-    animation: tickerScroll 50s linear infinite;
-  }
-
-  .track {
-    color: #5f738c;
-    font-size: ${theme.typography.fontSize.sm};
-  }
-
-  &:hover .track-wrap {
-    animation-play-state: paused;
-  }
-  -webkit-mask-image: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0) 0,
-    rgba(0, 0, 0, 1) 3px,
-    rgba(0, 0, 0, 1) 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0) 0,
-    rgba(0, 0, 0, 1) 3px,
-    rgba(0, 0, 0, 1) 100%
-  );
+  gap: 6px;
+  padding: 5px;
+  margin-bottom: 26px;
+  background: #f1f2f7;
+  border-radius: 12px;
 `;
 
-const StyledForm = styled(Form)`
-  .semi-form-field {
-    margin-bottom: 2px;
-  }
+const MethodTab = styled.button<{ $active: boolean }>`
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 9px;
+  background: ${(props) => (props.$active ? '#ffffff' : 'transparent')};
+  color: ${(props) => (props.$active ? '#3b2b9e' : '#7a7f99')};
+  font-size: 14px;
+  font-weight: ${(props) => (props.$active ? 600 : 400)};
+  cursor: pointer;
+  box-shadow: ${(props) => (props.$active ? '0 2px 8px rgba(30, 25, 80, 0.12)' : 'none')};
+  transition: all 0.2s ease;
+`;
+
+const FieldWrapper = styled.div<{ $hasError?: boolean }>`
+  margin-bottom: 16px;
+
   .semi-input-wrapper {
-    height: 38px;
-    background-color: #ffffff;
-    border: 1px solid var(--semi-color-border);
-    border-radius: 6px;
-    transition: all 0.3s ease;
+    border-radius: 10px;
+    border: 1.5px solid ${(props) => (props.$hasError ? '#f93920' : '#e3e5ef')};
+    transition: border-color 0.2s ease;
   }
   .semi-input-wrapper:focus-within {
-    border-color: var(--semi-color-primary);
+    border-color: #6a5ae0;
   }
-
-  /* 去掉输入框自动填充的阴影,保留边框 */
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus,
-  input:-webkit-autofill:active {
-    -webkit-box-shadow: none !important;
-    -webkit-text-fill-color: inherit !important;
-    transition: background-color 5000s ease-in-out 0s;
-  }
-
-  @media (max-width: ${theme.breakpoints.sm}) {
-    .semi-input-wrapper {
-      height: 34px;
-    }
+  .semi-input {
+    font-size: 14px;
   }
 `;
 
-// 错误状态的输入框包装器
-const EmailFieldWrapper = styled.div<{ $hasError: boolean }>`
+const CodeFieldWrapper = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  /* Semi Form 字段包装器默认占位错误信息导致高度不一致，统一对齐 */
+  .semi-field {
+    margin-bottom: 0;
+  }
   .semi-input-wrapper {
-    ${props => props.$hasError && `
-      border-color: #ff4d4f !important;
-      background-color: #fff2f0 !important;
-    `}
-    ${props => props.$hasError && `
-      &:focus-within {
-        border-color: #ff4d4f !important;
-        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
-      }
-    `}
-  }
-`;
-
-const CodeFieldWrapper = styled.div<{ $hasError: boolean }>`
-  .semi-input-wrapper {
-    ${props => props.$hasError && `
-      border-color: #ff4d4f !important;
-      background-color: #fff2f0 !important;
-    `}
-    ${props => props.$hasError && `
-      &:focus-within {
-        border-color: #ff4d4f !important;
-        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
-      }
-    `}
-  }
-`;
-
-const PasswordFieldWrapper = styled.div<{ $hasError: boolean }>`
-  .semi-input-wrapper {
-    ${props => props.$hasError && `
-      border-color: #ff4d4f !important;
-      background-color: #fff2f0 !important;
-    `}
-    ${props => props.$hasError && `
-      &:focus-within {
-        border-color: #ff4d4f !important;
-        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
-      }
-    `}
-  }
-`;
-
-const ConfirmPasswordFieldWrapper = styled.div<{ $hasError: boolean }>`
-  margin-top: 4px;
-  .semi-input-wrapper {
-    ${props => props.$hasError && `
-      border-color: #ff4d4f !important;
-      background-color: #fff2f0 !important;
-    `}
-    ${props => props.$hasError && `
-      &:focus-within {
-        border-color: #ff4d4f !important;
-        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1) !important;
-      }
-    `}
-  }
-`;
-
-const LoginButton = styled(Button)`
-  width: 100%;
-  height: 38px;
-  border-radius: ${theme.borderRadius.base};
-  background: linear-gradient(135deg, #9ac6a2 0%, #75ad80 100%) !important;
-  border: none !important;
-  color: white !important;
-  font-weight: ${theme.typography.fontWeight.medium};
-  @media (max-width: ${theme.breakpoints.sm}) {
     height: 40px;
   }
 `;
 
-const GuestLoginWrapper = styled.div`
-  margin-top: ${theme.spacing.base};
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+const CodeButton = styled(Button)`
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  width: 116px;
+  font-size: 13px;
 `;
 
-const SwitchLoginButton = styled.button`
-  background: transparent !important;
-  border: none !important;
-  color: #75ad80 !important;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px 8px;
-  transition: all 0.3s ease;
-  font-weight: 500;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+const LoginButton = styled(Button)`
+  width: 100%;
+  height: 44px;
+  margin-top: 8px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #6a5ae0 0%, #4d7cf0 100%);
+  border: none;
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
 
-  &:hover:not(:disabled) {
-    color: #5a9a66 !important;
-    text-decoration: underline;
-  }
-
-  &:active:not(:disabled) {
-    color: #4a8656 !important;
+  &:hover {
+    color: #ffffff !important;
+    filter: brightness(1.08);
+    box-shadow: 0 8px 20px rgba(93, 78, 216, 0.4);
   }
 
   &:disabled {
-    color: #d9d9d9 !important;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: ${theme.breakpoints.sm}) {
-    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7) !important;
   }
 `;
 
-const CodeInputWrapper = styled.div`
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-top: 2px;
-
-  .semi-form-field {
-    flex: 3; /* 验证码输入框占3份 */
-    margin-bottom: 0;
-  }
-
-  .code-button {
-    height: 38px;
-    padding: 0 20px;
-    flex: 1; /* 按钮占1份 */
-    min-width: 100px;
-    border-radius: ${theme.borderRadius.base};
-    background: transparent !important;
-    border: 1.5px solid #9ac6a2 !important;
-    color: #75ad80 !important;
-    font-weight: 500;
-    font-size: 14px;
-    white-space: nowrap;
-    margin-top: 22px;
-    transition: all 0.3s ease;
-
-    &:hover:not(:disabled) {
-      border-color: #75ad80 !important;
-      background: rgba(117, 173, 128, 0.08) !important;
-    }
-
-    &:active:not(:disabled) {
-      background: rgba(117, 173, 128, 0.15) !important;
-    }
-
-    &:disabled {
-      border-color: #d9d9d9 !important;
-      color: #bfbfbf !important;
-      background: transparent !important;
-      cursor: not-allowed;
-    }
-  }
-
-  @media (max-width: ${theme.breakpoints.sm}) {
-    gap: 8px;
-
-    .code-button {
-      height: 34px;
-      padding: 0 16px;
-      font-size: 13px;
-    }
-  }
-`;
-
-// 登录方式切换标签
-const LoginTabs = styled.div`
-  display: flex;
-  margin-bottom: 16px;
-  border-bottom: 1px solid #e8e8e8;
-`;
-
-const LoginTab = styled.button<{ $active: boolean }>`
+/* 首次登录设密弹窗按钮：与弹窗内其他按钮同高同行对齐（不复用 LoginButton 的外边距/宽度） */
+const ModalSecondaryButton = styled(Button)`
   flex: 1;
-  padding: 12px 0;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid ${props => props.$active ? '#75ad80' : 'transparent'};
-  color: ${props => props.$active ? '#75ad80' : '#5f738c'};
+  height: 40px;
+  margin: 0;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: ${props => props.$active ? '600' : '400'};
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+`;
+
+const ModalPrimaryButton = styled(Button)`
+  flex: 1;
+  height: 40px;
+  margin: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #6a5ae0 0%, #4d7cf0 100%);
+  border: none;
+  transition: filter 0.2s ease;
 
   &:hover {
-    color: #75ad80;
+    color: #ffffff !important;
+    filter: brightness(1.08);
+  }
+
+  &:disabled {
+    color: rgba(255, 255, 255, 0.7) !important;
   }
 `;
 
-// 推荐标识
-const RecommendTag = styled.span`
-  background: #FF6B00;
-  color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-  margin-left: 4px;
-`;
-
-// 微信二维码容器
-const WechatQrCodeWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 16px 0;
-`;
-
-const QrCodeContainer = styled.div`
-  width: 200px;
-  height: 200px;
-  border: 1px solid #e8e8e8;
-  border-radius: ${theme.borderRadius.lg};
+const Divider = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: #fafafa;
-  position: relative;
-  overflow: hidden;
+  gap: 12px;
+  margin: 26px 0 16px;
+  color: #a0a4bb;
+  font-size: 12px;
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e7e8f2;
   }
 `;
 
-const QrCodeStatusOverlay = styled.div<{ $expired?: boolean }>`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: ${props => props.$expired ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.9)'};
+const OAuthRow = styled.div`
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 12px;
 `;
 
-const QrCodeStatusText = styled.div`
-  font-size: 14px;
-  color: #5f738c;
-  margin-top: 12px;
-  text-align: center;
-`;
-
-const GithubLink = styled.a`
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  display: inline-flex;
+const OAuthButton = styled.button<{ $color: string }>`
+  flex: 1;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 8px 14px;
-  border-radius: 20px;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(4px);
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-radius: 10px;
+  border: 1.5px solid #e3e5ef;
+  background: #ffffff;
+  color: ${(props) => props.$color};
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 
   &:hover {
-    color: #fff;
-    background: rgba(0, 0, 0, 0.5);
-  }
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  @media (max-width: ${theme.breakpoints.sm}) {
-    top: 16px;
-    right: 16px;
-    font-size: 12px;
-    padding: 6px 12px;
+    border-color: ${(props) => props.$color};
+    background: rgba(106, 90, 224, 0.04);
   }
 `;
 
-const ScannedUserInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-
-  .avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #75ad80;
-  }
-
-  .nickname {
-    font-size: 14px;
-    color: #333;
-    font-weight: 500;
-  }
-`;
-
-const RefreshButton = styled(Button)`
-  margin-top: 8px;
+const FooterTip = styled(Text)`
+  display: block;
+  margin-top: 22px;
+  text-align: center;
+  color: #a0a4bb;
   font-size: 12px;
 `;
 
+// ---------------------------------------------------------------------------
+// 组件
+// ---------------------------------------------------------------------------
+
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [formApi, setFormApi] = useState<any>(null);
-  const [codeSending, setCodeSending] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  // 后端下发的已启用登录方式
+  const [enabledMethods, setEnabledMethods] = useState<string[]>([]);
+  const [methodsLoading, setMethodsLoading] = useState(true);
+
+  // 可用的表单登录方式与 OAuth 提供方
+  const [formTabs, setFormTabs] = useState<FormMethod[]>([]);
+  const [oauthProviders, setOauthProviders] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<FormMethod>('password');
+
+  const [submitting, setSubmitting] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [emailError, setEmailError] = useState('');
-  const [codeError, setCodeError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [loginMode, setLoginMode] = useState<'code' | 'password'>('code'); // 登录方式: 验证码或密码
-  const [showInitPassword, setShowInitPassword] = useState(false); // 是否显示密码创建界面
-  const [initPasswordEmail, setInitPasswordEmail] = useState(''); // 首次登录的邮箱
-  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
+  const [accountError, setAccountError] = useState(false);
 
-  // 微信二维码登录相关状态
-  const [authType, setAuthType] = useState<'email' | 'wechat'>('wechat'); // 登录类型
-  const [qrCodeData, setQrCodeData] = useState<WechatMiniProgramQrCodeResponseDTO | null>(null);
-  const [qrCodeLoading, setQrCodeLoading] = useState(false);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  // 首次登录设置密码
+  const [showInitPassword, setShowInitPassword] = useState(false);
+  const [initPasswordLoading, setInitPasswordLoading] = useState(false);
 
-  // 二维码状态枚举（与后端保持一致）
-  const QrCodeStatus = {
-    PENDING: 'PENDING',       // 等待扫码
-    SCANNED: 'SCANNED',       // 已扫码待确认
-    AUTHORIZED: 'AUTHORIZED', // 已授权（可以登录）
-    CONFIRMED: 'CONFIRMED',   // 已确认
-    EXPIRED: 'EXPIRED',       // 已过期
-    CANCELLED: 'CANCELLED',   // 已取消
-  } as const;
+  const formApiRef = useRef<any>(null);
+  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 登录页始终使用亮色模式
+  // 加载租户已启用的登录方式（管理端开闭后登录页自动同步）
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.body.removeAttribute('body-semi-dark');
-    return () => {
-      // 离开登录页时恢复用户保存的主题
-      const saved = localStorage.getItem('theme');
-      const isDark = saved !== 'light';
-      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-      if (isDark) {
-        document.body.setAttribute('body-semi-dark', '');
+    let mounted = true;
+    (async () => {
+      const result = await UserService.getLoginMethods();
+      if (!mounted) {
+        return;
       }
+      const methods = result.success && result.data ? result.data : ['password'];
+      setEnabledMethods(methods);
+
+      const tabs: FormMethod[] = [];
+      if (methods.includes('password')) {
+        tabs.push('password');
+      }
+      if (methods.some((m) => m.startsWith('email:'))) {
+        tabs.push('email');
+      }
+      if (methods.some((m) => m.startsWith('sms:'))) {
+        tabs.push('sms');
+      }
+      setFormTabs(tabs);
+      setActiveTab(tabs[0] || 'password');
+
+      setOauthProviders(methods.filter((m) => m.startsWith('oauth:')).map((m) => m.slice('oauth:'.length)));
+      setMethodsLoading(false);
+
+      if (!result.success) {
+        Toast.warning(result.message || '登录方式获取失败，已展示默认方式');
+      }
+    })();
+    return () => {
+      mounted = false;
     };
   }, []);
 
+  // OAuth 失败重定向提示
   useEffect(() => {
-    if (countdown > 0) {
-      const timer = setInterval(() => setCountdown((c) => c - 1), 1000);
-      return () => clearInterval(timer);
+    const oauthError = searchParams.get('oauthError');
+    if (oauthError) {
+      Toast.error(oauthError);
     }
-  }, [countdown]);
+  }, [searchParams]);
 
-  // 清理轮询
+  // 验证码倒计时
   useEffect(() => {
+    if (countdown <= 0) {
+      if (countdownTimer.current) {
+        clearInterval(countdownTimer.current);
+        countdownTimer.current = null;
+      }
+      return;
+    }
+    countdownTimer.current = setInterval(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
+      if (countdownTimer.current) {
+        clearInterval(countdownTimer.current);
       }
     };
-  }, []);
+  }, [countdown > 0]);
 
-  // 切换登录类型时的处理
-  useEffect(() => {
-    if (authType === 'wechat') {
-      generateQrCode();
-    } else {
-      // 切换到邮箱登录时停止轮询
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-      setQrCodeData(null);
+  const meta = FORM_METHOD_META[activeTab];
+
+  const persistLogin = (data: UserLoginResponseDTO) => {
+    const token = data.accessToken || data.token || '';
+    if (token) {
+      localStorage.setItem('token', token);
     }
-  }, [authType]);
-
-  // 生成微信登录二维码
-  const generateQrCode = async () => {
-    setQrCodeLoading(true);
-    try {
-      const result = await UserService.generateWechatMiniProgramQrCode();
-      if (result.success && result.data) {
-        console.log('✅ 二维码生成成功:', result.data);
-        setQrCodeData(result.data);
-        // 开始轮询二维码状态
-        startPolling(result.data.qrcodeId);
-      } else {
-        console.error('❌ 生成二维码失败:', result);
-        Toast.error(result.message || '生成二维码失败');
-      }
-    } catch (error) {
-      console.error('❌ 生成二维码失败:', error);
-      Toast.error('生成二维码失败，请检查网络连接');
-    } finally {
-      setQrCodeLoading(false);
-    }
-  };
-
-  // 开始轮询二维码状态
-  const startPolling = (qrcodeId: string) => {
-    // 先清除之前的轮询
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-    }
-
-    // 每2秒轮询一次
-    pollingRef.current = setInterval(async () => {
-      try {
-        const result = await UserService.queryWechatMiniProgramQrCodeStatus(qrcodeId);
-        console.log('🔄 轮询二维码状态:', result);
-        if (result.success && result.data) {
-          console.log('📱 二维码当前状态:', result.data.status);
-
-          // 只更新状态，保留原始的 qrCodeUrl（后端轮询接口可能不返回 qrCodeUrl）
-          setQrCodeData(prev => ({
-            ...prev,
-            ...result.data,
-            qrCodeUrl: prev?.qrCodeUrl || result.data.qrCodeUrl, // 优先使用之前的 qrCodeUrl
-          } as WechatMiniProgramQrCodeResponseDTO));
-
-          // 根据状态处理
-          if (result.data.status === 'CONFIRMED' && result.data.ticket) {
-            // 用户已确认，执行登录
-            await handleWechatLogin(result.data.ticket);
-          } else if (result.data.status === 'AUTHORIZED' && result.data.ticket) {
-            // 用户已授权，执行登录
-            console.log('✅ 用户已授权，准备登录');
-            await handleWechatLogin(result.data.ticket);
-          } else if (result.data.status === 'EXPIRED') {
-            console.warn('⏰ 二维码已过期');
-            // 二维码过期，停止轮询
-            if (pollingRef.current) {
-              clearInterval(pollingRef.current);
-              pollingRef.current = null;
-            }
-          } else if (result.data.status === 'CANCELLED') {
-            console.warn('🚫 用户取消登录');
-            // 二维码取消，停止轮询
-            if (pollingRef.current) {
-              clearInterval(pollingRef.current);
-              pollingRef.current = null;
-            }
-          }
-        }
-      } catch (error) {
-        console.error('❌ 查询二维码状态失败:', error);
-      }
-    }, 2000);
-  };
-
-  // 微信登录
-  const handleWechatLogin = async (ticket: string) => {
-    // 停止轮询
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-
-    // 立即显示成功提示，让用户知道正在处理
-    Toast.success('登录成功！正在跳转...');
-
-    setLoading(true);
-    try {
-      const result = await UserService.loginByWechatMiniProgramQrCode(ticket);
-      if (result.success && result.data) {
-        handleLoginSuccess(result.data);
-      } else {
-        Toast.error(result.message || '微信登录失败');
-        // 登录失败，重新生成二维码
-        generateQrCode();
-      }
-    } catch (error) {
-      console.error('微信登录失败:', error);
-      Toast.error('微信登录失败，请重试');
-      generateQrCode();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 登录成功处理
-  const handleLoginSuccess = (data: UserLoginResponseDTO) => {
-    const normalized = {
-      id: data.id,
-      username: data.username,
-      email: data.email || '',
-      role: data.role,
-      avatar: data.avatar,
-      status: data.status,
-      createTime: data.createTime,
-      updateTime: data.updateTime,
-    };
-
-    // 保存 token
-    localStorage.setItem('token', data.token || data.accessToken || '');
     if (data.refreshToken) {
       localStorage.setItem('refreshToken', data.refreshToken);
     }
-    localStorage.setItem('userInfo', JSON.stringify(normalized));
+    localStorage.setItem(
+      'userInfo',
+      JSON.stringify({
+        id: data.id,
+        username: data.username,
+        email: data.email || '',
+        role: data.role,
+        avatar: data.avatar || '',
+        status: data.status,
+        createTime: data.createTime,
+        updateTime: data.updateTime,
+      })
+    );
     localStorage.setItem('isLoggedIn', 'true');
-
-    Toast.success('登录成功！');
-    navigate('/');
   };
 
-  const handleSendCode = async () => {
-    const email = formApi?.getValue('email') || '';
-
-    // 清除验证码区域的错误(不影响邮箱区域)
-    setCodeError('');
-
-    // 清除邮箱之前的错误
-    setEmailError('');
-
-    // 手动验证邮箱
-    if (!email) {
-      setEmailError('请输入邮箱地址');
-      return;
+  const handleLoginSuccess = (data: UserLoginResponseDTO) => {
+    persistLogin(data);
+    if (data.isFirst || (data as any).first) {
+      // 验证码自动注册的新用户：引导设置密码
+      Modal.confirm({
+        title: '设置登录密码',
+        content: '检测到你是首次登录，建议设置密码以便下次使用账号密码登录',
+        okText: '立即设置',
+        cancelText: '跳过',
+        onOk: () => setShowInitPassword(true),
+        onCancel: () => navigate('/'),
+      });
+    } else {
+      Toast.success('登录成功');
+      navigate('/');
     }
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      setEmailError('请输入正确的邮箱格式');
-      return;
-    }
+  };
 
-    if (countdown > 0) {
-      return;
-    }
-
-    setCodeSending(true);
+  // 密码登录
+  const handlePasswordLogin = async (values: Record<string, string>) => {
+    setSubmitting(true);
     try {
-      const result = await UserService.sendEmailCode(email);
+      const result = await UserService.loginByPassword(values.username || '', values.password || '');
+      if (result.success && result.data) {
+        handleLoginSuccess(result.data);
+      } else {
+        Toast.error(result.message || '用户名或密码错误');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 发送验证码
+  const handleSendCode = async () => {
+    const values = formApiRef.current?.getValues() || {};
+    const target: string = values.target || '';
+    if (!target) {
+      setAccountError(true);
+      Toast.warning(`请先输入${meta.accountLabel}`);
+      return;
+    }
+    setAccountError(false);
+    setSendingCode(true);
+    try {
+      const result = await UserService.sendLoginCode(target);
       if (result.success) {
         Toast.success('验证码已发送，请注意查收');
-        setCountdown(70);
+        setCountdown(60);
       } else {
-        Toast.error(result.message || '发送验证码失败，请稍后重试');
+        Toast.error(result.message || '验证码发送失败');
       }
-    } catch (error) {
-      console.error('发送验证码失败:', error);
-      Toast.error('发送验证码失败，请检查网络连接');
     } finally {
-      setCodeSending(false);
+      setSendingCode(false);
     }
   };
 
-  const handleLogin = async (values: Record<string, any>) => {
-    // 清除之前的错误
-    setEmailError('');
-    setCodeError('');
-    setPasswordError('');
-
-    // 验证邮箱
-    const email = values.email || '';
-    if (!email) {
-      setEmailError('请输入邮箱地址');
-      return;
-    } else if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      setEmailError('请输入正确的邮箱格式');
-      return;
-    }
-
-    // 根据登录方式进行验证和登录
-    if (loginMode === 'code') {
-      // 验证码登录
-      if (!values.code) {
-        setCodeError('请输入验证码');
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const result = await UserService.loginByEmail(values.email, values.code);
-
-        if (result.success && result.data) {
-          const raw = result.data;
-
-          // 保存 token
-          localStorage.setItem('token', raw.token || raw.accessToken || '');
-          if (raw.refreshToken) {
-            localStorage.setItem('refreshToken', raw.refreshToken);
-          }
-
-          const normalized = {
-            id: raw.id,
-            username: raw.username,
-            email: values.email,
-            role: raw.role,
-            avatar: raw.avatar,
-            status: raw.status,
-            createTime: raw.createTime,
-            updateTime: raw.updateTime,
-          };
-          localStorage.setItem('userInfo', JSON.stringify(normalized));
-          localStorage.setItem('isLoggedIn', 'true');
-
-          // 检查是否是首次登录
-          if (raw.isFirst === true || raw.first === true) {
-            // 首次登录，提示用户设置密码但允许跳过
-            setTimeout(() => {
-              Modal.confirm({
-                title: '首次登录提示',
-                content: '检测到您是首次登录，建议设置登录密码以便下次使用密码登录。您也可以稍后在设置中修改密码。',
-                okText: '立即设置',
-                cancelText: '稍后设置',
-                onOk: () => {
-                  // 显示密码初始化界面
-                  setInitPasswordEmail(values.email);
-                  setShowInitPassword(true);
-                  setLoading(false);
-                },
-                onCancel: () => {
-                  // 直接进入聊天页面
-                  Toast.success('登录成功！');
-                  navigate('/');
-                },
-              });
-            }, 500);
-          } else {
-            Toast.success('登录成功！');
-            navigate('/');
-          }
-        } else {
-          Toast.error(result.message || '验证码错误或已过期，请重试');
-        }
-      } catch (error) {
-        console.error('登录失败:', error);
-        Toast.error('登录失败，请检查网络连接或稍后重试');
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // 密码登录
-      if (!values.password) {
-        setPasswordError('请输入密码');
-        return;
-      }
-      if (values.password.length < 6) {
-        setPasswordError('密码至少为6位');
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const result = await UserService.loginByEmailPassword(values.email, values.password);
-
-        if (result.success && result.data) {
-          const raw = result.data;
-
-          // 保存 token
-          localStorage.setItem('token', raw.token || raw.accessToken || '');
-          if (raw.refreshToken) {
-            localStorage.setItem('refreshToken', raw.refreshToken);
-          }
-
-          const normalized = {
-            id: raw.id,
-            username: raw.username,
-            email: values.email,
-            role: raw.role,
-            avatar: raw.avatar,
-            status: raw.status,
-            createTime: raw.createTime,
-            updateTime: raw.updateTime,
-          };
-          localStorage.setItem('userInfo', JSON.stringify(normalized));
-          localStorage.setItem('isLoggedIn', 'true');
-
-          Toast.success('登录成功！');
-          navigate('/');
-        } else {
-          Toast.error(result.message || '邮箱或密码错误，请重试');
-        }
-      } catch (error) {
-        console.error('登录失败:', error);
-        Toast.error('登录失败，请检查网络连接或稍后重试');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleInitPassword = async (values: Record<string, any>) => {
-    // 清除之前的错误
-    setPasswordError('');
-    setConfirmPasswordError('');
-
-    // 验证密码
-    const password = values.password || '';
-    const confirmPassword = values.confirmPassword || '';
-
-    if (!password) {
-      setPasswordError('请输入密码');
-      return;
-    }
-    if (password.length < 6) {
-      setPasswordError('密码至少为6位');
-      return;
-    }
-    if (!confirmPassword) {
-      setConfirmPasswordError('请输入确认密码');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setConfirmPasswordError('两次输入的密码不一致');
-      return;
-    }
-
-    setLoading(true);
+  // 验证码登录
+  const handleCodeLogin = async (values: Record<string, string>) => {
+    setSubmitting(true);
     try {
-      const result = await UserService.initEmailPassword(initPasswordEmail, password, confirmPassword);
-
-      if (result.success) {
-        Toast.success('密码设置成功！登录成功！');
-        navigate('/');
+      const result = await UserService.loginByCode(values.target || '', values.code || '');
+      if (result.success && result.data) {
+        handleLoginSuccess(result.data);
       } else {
-        Toast.error(result.message || '密码设置失败，请重试');
+        Toast.error(result.message || '验证码错误或已过期');
       }
-    } catch (error) {
-      console.error('密码设置失败:', error);
-      Toast.error('密码设置失败，请检查网络连接或稍后重试');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleSkipPasswordInit = () => {
-    // 跳过密码设置，弹出确认提示框
-    Modal.confirm({
-      title: '使用默认密码',
-      content: '默认密码为 123456，请尽快修改密码以确保账户安全！',
-      okText: '确认',
-      cancelText: '继续设置密码',
-      onOk: () => {
-        // 确认使用默认密码，进入聊天页面
-        Toast.success('登录成功！');
+  const handleSubmit = (values: Record<string, string>) => {
+    if (activeTab === 'password') {
+      handlePasswordLogin(values);
+    } else {
+      handleCodeLogin(values);
+    }
+  };
+
+  // OAuth 登录：跳转后端授权入口，由后端 302 到提供方
+  const handleOAuthLogin = (provider: string) => {
+    window.location.href = UserService.getOAuthAuthorizeUrl(provider);
+  };
+
+  // 首次登录设置密码
+  const handleInitPassword = async (values: Record<string, string>) => {
+    if (!values.newPassword || values.newPassword.length < 6) {
+      Toast.warning('密码长度至少 6 位');
+      return;
+    }
+    if (values.newPassword !== values.confirmPassword) {
+      Toast.warning('两次输入的密码不一致');
+      return;
+    }
+    setInitPasswordLoading(true);
+    try {
+      const result = await UserService.setPassword(values.newPassword);
+      if (result.success) {
+        Toast.success('密码设置成功');
+        setShowInitPassword(false);
         navigate('/');
-      },
-      onCancel: () => {
-        // 继续留在密码创建界面
-      },
-    });
+      } else {
+        Toast.error(result.message || '密码设置失败');
+      }
+    } finally {
+      setInitPasswordLoading(false);
+    }
   };
 
   return (
-    <LoginContainer>
-      <LoginCard>
-        <Header>
+    <div data-theme="light">
+      <LoginContainer>
+        <LoginCard>
           <Brand>
-            <BrandIcon>
-              <img src="/logo.png" alt="logo" />
-            </BrandIcon>
-            <BrandTitle heading={5}>
-              {showInitPassword ? '设置登录密码' : '灵犀AI助手'}
-            </BrandTitle>
+            <BrandLogo src="/logo.png" alt="logo" />
+            <BrandTitle heading={4}>灵犀AI助手</BrandTitle>
+            <BrandSubtitle size="small">登录后开启你的智能对话之旅</BrandSubtitle>
           </Brand>
-          {!showInitPassword && (
-          <BroadcastWrapper>
-              <div className="track-wrap">
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-                <div className="track">✅如未收到验证码，请检查是否被垃圾邮箱拦截</div>
-              </div>
-            </BroadcastWrapper>
-          )}
-        </Header>
 
-        {showInitPassword ? (
-          // 密码初始化界面
-          <StyledForm
-            onSubmit={handleInitPassword}
-            initValues={{ password: '', confirmPassword: '' }}
-            getFormApi={setFormApi}
-          >
-            <div style={{ marginBottom: '16px', fontSize: '14px', color: '#5f738c' }}>
-              设置您的登录密码（密码至少6位）
-            </div>
+          {methodsLoading ? (
+            <div style={{ textAlign: 'center', padding: '36px 0', color: '#8a8fa8' }}>加载登录方式中…</div>
+          ) : (
+            <>
+              {formTabs.length > 0 && (
+                <>
+                  {formTabs.length > 1 && (
+                    <MethodTabs>
+                      {formTabs.map((tab) => (
+                        <MethodTab
+                          key={tab}
+                          type="button"
+                          $active={activeTab === tab}
+                          onClick={() => setActiveTab(tab)}
+                        >
+                          {FORM_METHOD_META[tab].label}
+                        </MethodTab>
+                      ))}
+                    </MethodTabs>
+                  )}
 
-            <PasswordFieldWrapper $hasError={!!passwordError}>
-              <Form.Input
-                field="password"
-                label={
-                  <span>
-                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
-                    密码
-                  </span>
-                }
-                type="password"
-                mode="password"
-                placeholder={passwordError || '请输入密码（至少6位）'}
-                prefix={<IconLock />}
-                size="large"
-                onFocus={() => setPasswordError('')}
-              />
-            </PasswordFieldWrapper>
-
-            <ConfirmPasswordFieldWrapper $hasError={!!confirmPasswordError}>
-              <Form.Input
-                field="confirmPassword"
-                label={
-                  <span>
-                    <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
-                    确认密码
-                  </span>
-                }
-                type="password"
-                mode="password"
-                placeholder={confirmPasswordError || '请再次输入密码'}
-                prefix={<IconLock />}
-                size="large"
-                onFocus={() => setConfirmPasswordError('')}
-              />
-            </ConfirmPasswordFieldWrapper>
-
-            <div style={{ marginTop: '8px' }} />
-
-            <LoginButton type="primary" htmlType="submit" loading={loading}>
-              完成设置
-            </LoginButton>
-
-            <GuestLoginWrapper>
-              <SwitchLoginButton
-                onClick={handleSkipPasswordInit}
-                disabled={loading}
-                type="button"
-              >
-                跳过
-              </SwitchLoginButton>
-            </GuestLoginWrapper>
-          </StyledForm>
-        ) : (
-          // 正常登录界面
-          <>
-            {/* 登录方式切换标签 */}
-            <LoginTabs>
-              <LoginTab
-                $active={authType === 'wechat'}
-                onClick={() => setAuthType('wechat')}
-                type="button"
-              >
-                <IconQrCode size={16} />
-                微信登录
-                <RecommendTag>推荐</RecommendTag>
-              </LoginTab>
-              <LoginTab
-                $active={authType === 'email'}
-                onClick={() => setAuthType('email')}
-                type="button"
-              >
-                <IconMail size={16} />
-                邮箱登录
-              </LoginTab>
-            </LoginTabs>
-
-            {authType === 'wechat' ? (
-              // 微信二维码登录
-              <WechatQrCodeWrapper>
-                {qrCodeLoading ? (
-                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin size="large" />
-                  </div>
-                ) : qrCodeData ? (
-                  <>
-                    <QrCodeContainer>
-                      <img
-                        src={qrCodeData.qrCodeUrl || ''}
-                        alt="微信登录二维码"
-                        onError={(e) => {
-                          console.error('❌ 二维码图片加载失败:', qrCodeData.qrCodeUrl);
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                        }}
-                      />
-                      {/* 二维码过期遮罩 */}
-                      {qrCodeData.status === QrCodeStatus.EXPIRED && (
-                        <QrCodeStatusOverlay $expired>
-                          <span style={{ color: '#fff', fontSize: 14 }}>二维码已过期</span>
-                          <RefreshButton
-                            onClick={generateQrCode}
-                            size="small"
-                            type="primary"
-                          >
-                            刷新二维码
-                          </RefreshButton>
-                        </QrCodeStatusOverlay>
-                      )}
-                      {/* 已扫码待确认状态 */}
-                      {qrCodeData.status === QrCodeStatus.SCANNED && (
-                        <QrCodeStatusOverlay>
-                          <span style={{ color: '#75ad80', fontSize: 14 }}>扫码成功</span>
-                          <span style={{ color: '#5f738c', fontSize: 12 }}>请在手机上确认登录</span>
-                        </QrCodeStatusOverlay>
-                      )}
-                    </QrCodeContainer>
-
-                    {/* 扫码后显示用户信息 */}
-                    {qrCodeData.status === QrCodeStatus.SCANNED && (qrCodeData.displayName || qrCodeData.photo) && (
-                      <ScannedUserInfo>
-                        {qrCodeData.photo && (
-                          <img className="avatar" src={qrCodeData.photo} alt="用户头像" />
-                        )}
-                        {qrCodeData.displayName && (
-                          <span className="nickname">{qrCodeData.displayName}</span>
-                        )}
-                      </ScannedUserInfo>
-                    )}
-
-                    <QrCodeStatusText>
-                      {qrCodeData.status === QrCodeStatus.PENDING && '请使用微信扫描二维码登录'}
-                      {qrCodeData.status === QrCodeStatus.SCANNED && '请在手机微信上确认登录'}
-                      {qrCodeData.status === QrCodeStatus.AUTHORIZED && '✅ 登录成功！正在跳转...'}
-                      {qrCodeData.status === QrCodeStatus.CONFIRMED && '✅ 登录成功！正在跳转...'}
-                      {qrCodeData.status === QrCodeStatus.CANCELLED && '登录已取消，请重新扫码'}
-                    </QrCodeStatusText>
-
-                    {qrCodeData.status === QrCodeStatus.EXPIRED && (
-                      <RefreshButton onClick={generateQrCode} type="primary">
-                        刷新二维码
-                      </RefreshButton>
-                    )}
-                  </>
-                ) : (
-                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5f738c' }}>
-                    <Button onClick={generateQrCode} type="primary">
-                      获取登录二维码
-                    </Button>
-                  </div>
-                )}
-              </WechatQrCodeWrapper>
-            ) : (
-              // 邮箱登录表单
-              <StyledForm
-                onSubmit={handleLogin}
-                initValues={{ email: '', code: '', password: '' }}
-                getFormApi={setFormApi}
-              >
-                <EmailFieldWrapper $hasError={!!emailError}>
-                  <Form.Input
-                    field="email"
-                    label={
-                      <span>
-                        <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
-                        邮箱
-                      </span>
-                    }
-                    placeholder={emailError || '请输入邮箱地址'}
-                    prefix={<IconMail />}
-                    size="large"
-                    onFocus={() => setEmailError('')}
-                  />
-                </EmailFieldWrapper>
-
-                {loginMode === 'code' ? (
-                  <CodeInputWrapper>
-                    <CodeFieldWrapper $hasError={!!codeError}>
+                  <Form getFormApi={(api: any) => (formApiRef.current = api)} onSubmit={handleSubmit}>
+                    <FieldWrapper $hasError={accountError}>
                       <Form.Input
-                        field="code"
-                        label={
-                          <span>
-                            <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
-                            验证码
-                          </span>
-                        }
-                        placeholder={codeError || '请输入验证码'}
+                        field={meta.accountField}
+                        noLabel
                         size="large"
-                        style={{ flex: 1 }}
-                        onFocus={() => setCodeError('')}
+                        placeholder={meta.placeholder}
+                        prefix={activeTab === 'password' ? <IconUser /> : activeTab === 'sms' ? <IconPhone /> : <IconMail />}
+                        onChange={() => setAccountError(false)}
+                        rules={[{ required: true, message: `请输入${meta.accountLabel}` }]}
                       />
-                    </CodeFieldWrapper>
-                    <Button
-                      className="code-button"
-                      onClick={handleSendCode}
-                      loading={codeSending}
-                      disabled={countdown > 0 || codeSending}
-                    >
-                      {codeSending ? '发送中...' : countdown > 0 ? `重新发送(${countdown}s)` : '获取验证码'}
-                    </Button>
-                  </CodeInputWrapper>
-                ) : (
-                  <PasswordFieldWrapper $hasError={!!passwordError}>
-                    <Form.Input
-                      field="password"
-                      label={
-                        <span>
-                          <span style={{ color: '#ff4d4f', marginRight: '4px' }}>*</span>
-                          密码
-                        </span>
-                      }
-                      type="password"
-                      mode="password"
-                      placeholder={passwordError || '请输入密码（至少6位）'}
-                      prefix={<IconLock />}
-                      size="large"
-                      onFocus={() => setPasswordError('')}
-                    />
-                  </PasswordFieldWrapper>
-                )}
+                    </FieldWrapper>
 
-                <div style={{ marginTop: '8px' }} />
+                    {activeTab === 'password' && (
+                      <FieldWrapper>
+                        <Form.Input
+                          field="password"
+                          noLabel
+                          size="large"
+                          mode="password"
+                          placeholder="请输入密码"
+                          prefix={<IconLock />}
+                          rules={[{ required: true, message: '请输入密码' }]}
+                        />
+                      </FieldWrapper>
+                    )}
 
-                <LoginButton type="primary" htmlType="submit" loading={loading}>
-                  登录
-                </LoginButton>
-              </StyledForm>
-            )}
-          </>
-        )}
-      </LoginCard>
+                    {meta.needCode && (
+                      <FieldWrapper>
+                        <CodeFieldWrapper>
+                          <div style={{ flex: 1 }}>
+                            <Form.Input
+                              field="code"
+                              noLabel
+                              size="large"
+                              placeholder="请输入验证码"
+                              prefix={<IconMail />}
+                              rules={[{ required: true, message: '请输入验证码' }]}
+                            />
+                          </div>
+                          <CodeButton
+                            type="tertiary"
+                            theme="light"
+                            disabled={countdown > 0 || sendingCode}
+                            loading={sendingCode}
+                            onClick={handleSendCode}
+                          >
+                            {countdown > 0 ? `${countdown}s 后重发` : '获取验证码'}
+                          </CodeButton>
+                        </CodeFieldWrapper>
+                      </FieldWrapper>
+                    )}
 
-      <GithubLink
-        href="https://github.com/userwanyong/AI-AGENT-FRONT"
-        target="_blank"
-        rel="noopener noreferrer"
+                    <LoginButton htmlType="submit" loading={submitting}>
+                      登录
+                    </LoginButton>
+                  </Form>
+                </>
+              )}
+
+              {oauthProviders.length > 0 && (
+                <>
+                  <Divider>第三方登录</Divider>
+                  <OAuthRow>
+                    {oauthProviders.map((provider) => {
+                      const providerMeta = OAUTH_META[provider] || { label: provider, color: '#333' };
+                      return (
+                        <OAuthButton
+                          key={provider}
+                          type="button"
+                          $color={providerMeta.color}
+                          onClick={() => handleOAuthLogin(provider)}
+                        >
+                          {provider === 'gitee' ? <GiteeIcon /> : provider === 'github' ? <GithubIcon /> : null}
+                          {providerMeta.label} 登录
+                        </OAuthButton>
+                      );
+                    })}
+                  </OAuthRow>
+                </>
+              )}
+
+              <FooterTip>
+                {enabledMethods.some((m) => m.startsWith('email:'))
+                  ? '未注册的邮箱验证码登录将自动注册账号'
+                  : '登录方式由管理员在认证服务中配置'}
+              </FooterTip>
+            </>
+          )}
+        </LoginCard>
+      </LoginContainer>
+
+      {/* 首次登录设置密码 */}
+      <Modal
+        title="设置登录密码"
+        visible={showInitPassword}
+        footer={null}
+        closeOnEsc
+        onCancel={() => {
+          setShowInitPassword(false);
+          navigate('/');
+        }}
       >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-        </svg>
-        GitHub
-      </GithubLink>
-    </LoginContainer>
+        <div style={{ color: '#8a8fa8', fontSize: 13, marginBottom: 16 }}>
+          为方便下次登录，请为你的账号设置一个密码（可跳过，跳过后将无法使用密码登录）
+        </div>
+        <Form onSubmit={handleInitPassword}>
+          <FieldWrapper>
+            <Form.Input
+              field="newPassword"
+              noLabel
+              size="large"
+              mode="password"
+              placeholder="设置密码（6~50 位）"
+              prefix={<IconLock />}
+              rules={[{ required: true, message: '请输入密码' }]}
+            />
+          </FieldWrapper>
+          <FieldWrapper>
+            <Form.Input
+              field="confirmPassword"
+              noLabel
+              size="large"
+              mode="password"
+              placeholder="确认密码"
+              prefix={<IconLock />}
+              rules={[{ required: true, message: '请再次输入密码' }]}
+            />
+          </FieldWrapper>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+            <ModalSecondaryButton
+              type="tertiary"
+              theme="light"
+              onClick={() => {
+                setShowInitPassword(false);
+                navigate('/');
+              }}
+            >
+              跳过
+            </ModalSecondaryButton>
+            <ModalPrimaryButton htmlType="submit" loading={initPasswordLoading}>
+              保存
+            </ModalPrimaryButton>
+          </div>
+        </Form>
+      </Modal>
+    </div>
   );
 };
 
