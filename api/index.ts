@@ -33,6 +33,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const contentType = response.headers.get('content-type') || '';
     const isStream = contentType.includes('text/event-stream') || contentType.includes('application/x-ndjson');
 
+    // 3xx 重定向：透传 Location，让浏览器继续跳转（OAuth authorize 等依赖 302）
+    const location = response.headers.get('location');
+    if (location && response.status >= 300 && response.status < 400) {
+      res.setHeader('Location', location);
+      res.status(response.status).end();
+      return;
+    }
+
     // 设置响应头
     res.setHeader('Content-Type', contentType);
     res.setHeader('Access-Control-Allow-Origin', '*');
